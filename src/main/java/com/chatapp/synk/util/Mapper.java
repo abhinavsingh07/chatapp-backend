@@ -2,18 +2,22 @@ package com.chatapp.synk.util;
 
 import com.chatapp.synk.dto.ContactDTO;
 import com.chatapp.synk.dto.ConversationDTO;
+import com.chatapp.synk.dto.ConversationParticipantDTO;
 import com.chatapp.synk.dto.UserDTO;
 import com.chatapp.synk.entity.Contact;
 import com.chatapp.synk.entity.Conversation;
+import com.chatapp.synk.entity.ConversationParticipant;
 import com.chatapp.synk.entity.User;
 
 public class Mapper {
 
     private static final String ALIAS_USER = "USER";
 
-    private static final String ALIAS_CONTACT="CONT";
+    private static final String ALIAS_CONTACT = "CONT";
 
     private static final String ALIAS_CONVERSATION = "CONV";
+
+    private static final String ALIAS_PARTICIPANT = "PART";
 
     public static UserDTO mapToUserDTO(User user) {
         UserDTO dto = new UserDTO();
@@ -54,7 +58,6 @@ public class Mapper {
     }
 
 
-
     public static Conversation mapToConversationEntity(ConversationDTO dto) {
         Conversation conversation = new Conversation();
         conversation.setId(RandomUUIDGenerater.getId(ALIAS_CONVERSATION).toString());
@@ -64,5 +67,17 @@ public class Mapper {
 
     public static ConversationDTO mapToConversationDTO(Conversation entity) {
         return new ConversationDTO(entity.getId(), entity.getConversationType());
+    }
+
+    public static ConversationParticipant mapToParticipantEntity(ConversationParticipantDTO dto) {
+        ConversationParticipant participant = new ConversationParticipant();
+        participant.setId(RandomUUIDGenerater.getId(ALIAS_PARTICIPANT).toString());
+        participant.setConversationId(dto.getConversationId());
+        participant.setUserId(dto.getUserId());
+        return participant;
+    }
+
+    public static ConversationParticipantDTO mapToParticipantDTO(ConversationParticipant entity) {
+        return new ConversationParticipantDTO(entity.getId(), entity.getConversationId(), entity.getUserId());
     }
 }
