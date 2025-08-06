@@ -32,7 +32,7 @@ public class UserServiceImpl implements UserService {
     public PasswordEncoder passwordEncoder;
 
     @Override
-    @CachePut(value = "userCache", key = "#result.phoneNumber")
+    @CachePut(value = "userCache", key = "#result.id",unless = "#result == null")
     public UserDTO createUser(UserDTO userDTO) throws ServiceException {
         logger.info("Creating new user with phone: {}", userDTO.getPhoneNumber());
         try {
@@ -60,7 +60,8 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    @Cacheable(value = "userCache", key = "#phoneNumberOrEmail", unless = "#result == null")
+    //@Cacheable(value = "userCache", key = "#phoneNumberOrEmail", unless = "#result == null")
+    //Caching we do explicitly using cache manage inside method
     public UserDTO getUserByPhoneNumberOrEmail(String phoneNumberOrEmail) {
         if (StringUtility.isEmpty(phoneNumberOrEmail)) {
             logger.error("Input identifier is empty. Cannot fetch user.");
@@ -87,12 +88,15 @@ public class UserServiceImpl implements UserService {
             return null;
         }
 
+        // Manually cache this using CacheManager (optional)
+        // cacheManager.getCache("userCache").put(userDTO.getId(), userDTO);
+
         return result.get();
     }
 
 
     @Override
-    @CacheEvict(value = "userCache", key = "#userDTO.id")
+    @CachePut(value = "userCache", key = "#userId" , unless = "#result == null")
     public UserDTO updateUser(String userId, UserDTO userDTO) throws ServiceException {
         logger.info("Updating user with ID: {}", userId);
 
@@ -119,7 +123,6 @@ public class UserServiceImpl implements UserService {
 
     @Override
     //caching not needed if we create new user it is not coming here
-    //@Cacheable(value = "userCache", key = "#query != null ? #query : 'NULL_KEY_TO_GET_ALL_USERS'", unless = "#result == null or #result.isEmpty()")
     public List<UserDTO> searchUsers(String query) {
         logger.info("Searching users with query: '{}'", query);
 

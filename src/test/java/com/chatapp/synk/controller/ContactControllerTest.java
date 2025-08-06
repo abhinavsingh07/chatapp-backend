@@ -1,6 +1,6 @@
 package com.chatapp.synk.controller;
 
-import com.chatapp.synk.dto.ContactDTO;
+import com.chatapp.synk.dto.UserDTO;
 import com.chatapp.synk.security.JwtAuthFilter;
 import com.chatapp.synk.service.ContactService;
 import org.junit.jupiter.api.BeforeEach;
@@ -34,12 +34,12 @@ public class ContactControllerTest {
     @Autowired
     private ContactService contactService;
 
-    private ContactDTO sampleContact;
+    private UserDTO sampleContact;
 
     @BeforeEach
     public void setup() {
         Mockito.reset(contactService);
-        sampleContact = new ContactDTO("456_CONT", "user123", "contactUser456");
+        sampleContact = new UserDTO("456_CONT", "userphone", "useremail","userpassword", "User Name", "http://example.com/profile.jpg", "About User");
     }
 
     @Test

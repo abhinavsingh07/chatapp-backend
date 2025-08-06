@@ -1,6 +1,7 @@
 package com.chatapp.synk.controller;
 
 import com.chatapp.synk.dto.ContactDTO;
+import com.chatapp.synk.dto.UserDTO;
 import com.chatapp.synk.response.SuccessResponse;
 import com.chatapp.synk.service.ContactService;
 import jakarta.validation.Valid;
@@ -31,10 +32,10 @@ public class ContactController {
     }
 
     @GetMapping("/{userId}")
-    public ResponseEntity<SuccessResponse<ContactDTO>> getContactsByUserId(@PathVariable(required = true) String userId) {
+    public ResponseEntity<SuccessResponse<UserDTO>> getContactsByUserId(@PathVariable(required = true) String userId) {
         logger.info("Received contact search request for userId: {}", userId);
 
-        List<ContactDTO> results = contactService.getContactsByUserId(userId);
+        List<UserDTO> results = contactService.getContactsByUserId(userId);
 
         if (results.isEmpty()) {
             logger.warn("No contacts found for userId: {}", userId);
@@ -46,5 +47,12 @@ public class ContactController {
         String code = results.isEmpty() ? "404" : "200";
 
         return ResponseEntity.ok(new SuccessResponse<>(code, msg, results));
+    }
+
+    @DeleteMapping("/{contactId}")
+    public ResponseEntity<SuccessResponse<String>> deleteContact(@PathVariable String contactId) {
+        logger.info("Deleting contact with userId: {}", contactId);
+        contactService.deleteContact(contactId);
+        return ResponseEntity.ok(new SuccessResponse<>("200", "Contact deleted successfully", List.of(  )));
     }
 }

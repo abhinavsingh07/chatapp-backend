@@ -14,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -35,9 +36,9 @@ public class ContactServiceImpl implements ContactService {
     public ContactDTO addContact(ContactDTO contactDTO) {
         logger.info("Attempting to add contact: userId={}, contactUserId={}", contactDTO.getUserId(), contactDTO.getContactUserId());
 
-        Optional<ContactDTO> existingContact = contactRepository.findByUserIdAndContactUserId(contactDTO.getUserId(), contactDTO.getContactUserId());
+        List<Contact> existingContact = contactRepository.findByUserIdAndContactUserId(contactDTO.getUserId(), contactDTO.getContactUserId());
 
-        if (existingContact.isPresent()) {
+        if (existingContact.size() > 0) {
             logger.warn("Contact already exists for userId={} and contactUserId={}", contactDTO.getUserId(), contactDTO.getContactUserId());
             throw new ServiceException("Contact already exists for this user. Please try again with a different contact.");
         }
@@ -56,15 +57,15 @@ public class ContactServiceImpl implements ContactService {
 
 
     @Override
-    @Cacheable(value = "contactCache", key = "'contactsForUser_' + #userId")
+    @Cacheable(value = "contactListCache", key = "#userId")
     public List<UserDTO> getContactsByUserId(String userId) {
         logger.info("Fetching contacts for userId: {}", userId);
 
-        List<ContactDTO> contactDTOList = contactRepository.findAllByUserId(userId);
-        logger.debug("Found {} contacts for userId {}", contactDTOList.size(), userId);
-
-        List<UserDTO> userDTOList = contactDTOList.stream().map(contactDTO -> {
-            String contactUserId = contactDTO.getUserId();
+        List<Contact> contactList = contactRepository.findAllByUserId(userId);
+        logger.debug("Found {} contacts for userId {}", contactList.size(), userId);
+        //we are not using hibernate mapping explicitly we are fetching relations.
+        List<UserDTO> userDTOList = contactList.stream().map(contact -> {
+            String contactUserId = contact.getContactUserId();
             logger.debug("Fetching UserDTO for contactUserId: {}", contactUserId);
             UserDTO userDTO = userService.getUserById(contactUserId);
             if (userDTO == null) {
@@ -78,7 +79,9 @@ public class ContactServiceImpl implements ContactService {
     }
 
     @Override
-    @CacheEvict(value = "contactCache", key = "#contactId")
+    @Caching(evict = {
+            @CacheEvict(value = "contactCache", key = "#contactId"),
+            @CacheEvict(value = "contactListCache", key = "#userId")})//result should be there otherwise cause cache exception. so we will send on id cache evicts runs on full successful completion of method
     public void deleteContact(String contactId) {
         logger.info("Attempting to delete contact with ID: {}", contactId);
 
@@ -89,8 +92,12 @@ public class ContactServiceImpl implements ContactService {
         }
 
         Contact contact = contactOpt.get();
+        //In Spring Cache annotations like @CacheEvict runs After method execution,
+        // you can refer to method parameters or local variables,
+        // as long as they are in scope at the time of method execution.
+        //local variable using for cache evict contactListCache.
+        String userId = contact.getUserId();
         contactRepository.delete(contact);
         logger.info("Contact with ID {} deleted successfully", contactId);
     }
-
 }

@@ -5,11 +5,9 @@ import jakarta.validation.constraints.NotBlank;
 
 public class UserDTO {
 
-    private String id;
-
+    private String id;//userid
     @NotBlank(message = "Phone number is required")
     private String phoneNumber;
-
     @NotBlank(message = "Email is required")
     private String email;
     @NotBlank(message = "Password is required")
@@ -19,7 +17,6 @@ public class UserDTO {
     private String profilePictureUrl;
     private String about;
     private String userRoles;
-
 
     public UserDTO() {
     }
