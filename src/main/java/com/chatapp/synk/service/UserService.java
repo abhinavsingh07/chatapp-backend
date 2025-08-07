@@ -6,15 +6,17 @@ import java.util.List;
 
 
 public interface UserService {
-    UserDTO createUser(UserDTO userDTO);
-
     UserDTO getUserById(String userId);
 
     UserDTO getUserByPhoneNumberOrEmail(String phoneNumberOrEmail);
 
-    UserDTO updateUser(String userId, UserDTO userDTO);
+    List<UserDTO> searchUsers(String phonePart, String emailPart);
 
-    List<UserDTO> searchUsers(String query);
+    List<UserDTO> getAllUsers();
+
+    UserDTO createUser(UserDTO userDTO);
+
+    UserDTO updateUser(String userId, UserDTO userDTO);
 
     void deleteUser(String userId);
 }

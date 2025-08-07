@@ -1,5 +1,6 @@
 package com.chatapp.synk.entity;
 
+import com.chatapp.synk.enums.UserStatus;
 import jakarta.persistence.*;
 
 import java.time.LocalDateTime;
@@ -37,6 +38,9 @@ public class User {
     @Column(name = "updated_at")
     //LocalDateTime is DATETIME data type in db
     private LocalDateTime updatedAt;
+
+    @Enumerated(EnumType.STRING)
+    private UserStatus status = UserStatus.ACTIVE;//default status is ACTIVE
 
     // Constructors
     public User() {
@@ -137,5 +141,13 @@ public class User {
 
     public void setEmail(String email) {
         this.email = email;
+    }
+
+    public UserStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(UserStatus status) {
+        this.status = status;
     }
 }

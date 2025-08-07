@@ -29,6 +29,7 @@ public class Mapper {
         dto.setProfilePictureUrl(user.getProfilePictureUrl());
         dto.setAbout(user.getAbout());
         dto.setEmail(user.getEmail());
+        dto.setStatus(user.getStatus() != null ? user.getStatus() : null);
         return dto;
     }
 
@@ -42,6 +43,7 @@ public class Mapper {
         user.setProfilePictureUrl(dto.getProfilePictureUrl());
         user.setAbout(dto.getAbout());
         user.setEmail(dto.getEmail());
+        user.setStatus(dto.getStatus());
         return user;
     }
 

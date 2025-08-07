@@ -24,19 +24,25 @@ public class GlobalExceptionHandler {
 
     private static final Logger logger = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
-    private final int ERROR_CODE_BADREQUEST = 400;
-    private final int ERROR_CODE_INTERNALSERVERERROR = 500;
+    private final int HTTP_CODE_BAD_REQUEST = 400;
+    private final int HTTP_CODE_INTERNAL_SERVER_ERROR = 500;
 
     @ExceptionHandler({ServiceException.class})
     public ResponseEntity<ErrorResponse> handleServiceException(ServiceException exception) {
-        logger.error("ServiceException occurred: {}", exception.getMessage(), exception);
-
+        logger.info("ServiceException occurred: {}", exception.getMessage());
+        HttpStatus status = exception.getStatus() != null ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
         ErrorResponse errResp = new ErrorResponse();
-        errResp.setResponseCode(ERROR_CODE_INTERNALSERVERERROR);
-        errResp.setError(HttpStatus.INTERNAL_SERVER_ERROR);
         errResp.setErrorMessage(exception.getMessage());
+        if (exception.getStatus() != null) {
+            errResp.setResponseCode(exception.getStatus().value());//404
+            errResp.setError(exception.getStatus());//NOT_FOUND
+        } else {
+            errResp.setResponseCode(HTTP_CODE_INTERNAL_SERVER_ERROR);
+            errResp.setError(HttpStatus.INTERNAL_SERVER_ERROR);
+        }
 
-        return new ResponseEntity<>(errResp, HttpStatus.INTERNAL_SERVER_ERROR);
+
+        return new ResponseEntity<>(errResp, status);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -46,7 +52,7 @@ public class GlobalExceptionHandler {
         List<BeanValidationErrors> errors = ex.getBindingResult().getFieldErrors().stream().map(i -> new BeanValidationErrors(i.getField(), i.getDefaultMessage(), i.getRejectedValue())).collect(Collectors.toList());
 
         ErrorResponse<BeanValidationErrors> resp = new ErrorResponse<>();
-        resp.setResponseCode(ERROR_CODE_BADREQUEST);
+        resp.setResponseCode(HTTP_CODE_BAD_REQUEST);
         resp.setError(HttpStatus.BAD_REQUEST);
         resp.setErrors(errors);
 
@@ -63,7 +69,7 @@ public class GlobalExceptionHandler {
         }
 
         ErrorResponse<ConstraintValidationErrors> resp = new ErrorResponse<>();
-        resp.setResponseCode(ERROR_CODE_BADREQUEST);
+        resp.setResponseCode(HTTP_CODE_BAD_REQUEST);
         resp.setError(HttpStatus.BAD_REQUEST);
         resp.setErrors(errors);
 

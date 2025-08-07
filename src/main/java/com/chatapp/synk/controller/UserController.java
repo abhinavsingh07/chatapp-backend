@@ -23,14 +23,16 @@ public class UserController {
     private UserService userService;
 
     @GetMapping("/search")
-    public ResponseEntity<SuccessResponse<UserDTO>> searchUsers(@RequestParam(required = false) String query) {
-        logger.info("Received search request with query: {}", query);
+    public ResponseEntity<SuccessResponse<UserDTO>> searchUsers(
+            @RequestParam(required = false) String phoneNumber,
+            @RequestParam(required = false) String email) {
+        logger.info("Received search request with query parameters - Phone Number: {}, Email: {}", phoneNumber, email);
 
-        List<UserDTO> results = userService.searchUsers(query);
+        List<UserDTO> results = userService.searchUsers(phoneNumber, email);
         if (results.isEmpty()) {
-            logger.warn("No users found for query: {}", query);
+            logger.warn("No users found ");
         } else {
-            logger.info("Found {} users for query: {}", results.size(), query);
+            logger.info("Found {} users", results.size());
         }
 
         String msg = results.isEmpty() ? "No matching users found" : "Search results";
@@ -44,12 +46,25 @@ public class UserController {
         logger.info("Fetching user with ID: {}", id);
 
         UserDTO userOpt = userService.getUserById(id);
-        if (userOpt !=null) {
+        if (userOpt != null) {
             logger.info("User with ID {} found", id);
             return ResponseEntity.ok(new SuccessResponse<>("200", "User fetched", List.of(userOpt)));
         } else {
             logger.warn("User with ID {} not found", id);
             return ResponseEntity.ok(new SuccessResponse<>("404", "User not found", Collections.emptyList()));
+        }
+    }
+
+    @GetMapping("/all")
+    public ResponseEntity<SuccessResponse<UserDTO>> getAllUsers(){
+        logger.info("Fetching all users");
+        List<UserDTO> users = userService.getAllUsers();
+        if (users.isEmpty()) {
+            logger.warn("No users found");
+            return ResponseEntity.ok(new SuccessResponse<>("404", "No users found", Collections.emptyList()));
+        } else {
+            logger.info("Found {} users", users.size());
+            return ResponseEntity.ok(new SuccessResponse<>("200", "Users fetched successfully", users));
         }
     }
 

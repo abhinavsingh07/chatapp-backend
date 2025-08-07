@@ -11,10 +11,12 @@ import com.chatapp.synk.util.Mapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -30,6 +32,8 @@ public class ContactServiceImpl implements ContactService {
 
     @Autowired
     private UserService userService;
+    @Autowired
+    private CacheManager cacheManager;
 
     @Override
     @CachePut(value = "contactCache", key = "#result.id", unless = "#result == null")
@@ -40,7 +44,7 @@ public class ContactServiceImpl implements ContactService {
 
         if (existingContact.size() > 0) {
             logger.warn("Contact already exists for userId={} and contactUserId={}", contactDTO.getUserId(), contactDTO.getContactUserId());
-            throw new ServiceException("Contact already exists for this user. Please try again with a different contact.");
+            throw new ServiceException("Contact already exists for this user. Please try again with a different contact.", HttpStatus.BAD_REQUEST);
         }
 
         logger.debug("No existing contact found. Proceeding to save new contact.");
@@ -79,25 +83,21 @@ public class ContactServiceImpl implements ContactService {
     }
 
     @Override
-    @Caching(evict = {
-            @CacheEvict(value = "contactCache", key = "#contactId"),
-            @CacheEvict(value = "contactListCache", key = "#userId")})//result should be there otherwise cause cache exception. so we will send on id cache evicts runs on full successful completion of method
+    @Caching(evict = { @CacheEvict(value = "contactCache", key = "#contactId")})
     public void deleteContact(String contactId) {
         logger.info("Attempting to delete contact with ID: {}", contactId);
 
         Optional<Contact> contactOpt = contactRepository.findById(contactId);
         if (contactOpt.isEmpty()) {
             logger.warn("No contact found with ID: {}", contactId);
-            throw new ServiceException("Contact not found");
+            throw new ServiceException("Contact not found for given contact id", HttpStatus.NOT_FOUND);
         }
 
         Contact contact = contactOpt.get();
-        //In Spring Cache annotations like @CacheEvict runs After method execution,
-        // you can refer to method parameters or local variables,
-        // as long as they are in scope at the time of method execution.
-        //local variable using for cache evict contactListCache.
         String userId = contact.getUserId();
         contactRepository.delete(contact);
+        // manual eviction using local variable
+        cacheManager.getCache("contactListCache").evict(userId);
         logger.info("Contact with ID {} deleted successfully", contactId);
     }
 }

@@ -13,4 +13,9 @@ public enum ConversationType {
     public String getDescription() {
         return description;
     }
+
+    // usage example
+    // ConversationType type = ConversationType.ONE_TO_ONE;
+    // System.out.println("Type: " + type); // Outputs: ONE_TO_ONE
+    // System.out.println("Description: " + type.getDescription()); // Outputs: One-to-one chat
 }

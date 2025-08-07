@@ -1,7 +1,11 @@
 package com.chatapp.synk.exceptionHandler;
 
+import org.springframework.http.HttpStatus;
+
 public class ServiceException extends RuntimeException {
     private String message;
+
+    private HttpStatus status;
 
     /**
      * Constructs a new runtime exception with the specified detail message.
@@ -31,5 +35,20 @@ public class ServiceException extends RuntimeException {
      */
     public ServiceException(String message, Throwable cause) {
         super(message, cause);
+    }
+
+    /**
+     * Constructs a new runtime exception with the specified detail message and http status code
+     * @param message the detail message (which is saved for later retrieval)
+     * @param status  the HTTP status code associated with this exception
+     */
+
+    public ServiceException(String message, HttpStatus status) {
+        super(message);
+        this.status = status;
+    }
+
+    public HttpStatus getStatus() {
+        return status;
     }
 }

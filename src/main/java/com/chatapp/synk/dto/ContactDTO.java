@@ -1,5 +1,6 @@
 package com.chatapp.synk.dto;
 
+import com.chatapp.synk.enums.ContactStatus;
 import jakarta.validation.constraints.NotBlank;
 
 public class  ContactDTO {
@@ -7,8 +8,8 @@ public class  ContactDTO {
     private String id;
     @NotBlank(message = "UserId is required")
     private String userId;
-    @NotBlank(message = "Contact UserId is required")
     private String contactUserId;
+    private ContactStatus status;
 
     public ContactDTO(){
     }
@@ -41,5 +42,13 @@ public class  ContactDTO {
 
     public void setContactUserId(String contactUserId) {
         this.contactUserId = contactUserId;
+    }
+
+    public ContactStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(ContactStatus status) {
+        this.status = status;
     }
 }

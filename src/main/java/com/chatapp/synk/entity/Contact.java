@@ -1,5 +1,6 @@
 package com.chatapp.synk.entity;
 
+import com.chatapp.synk.enums.ContactStatus;
 import jakarta.persistence.*;
 
 import java.time.LocalDateTime;
@@ -15,11 +16,14 @@ public class Contact {
     @Column(name = "user_id", nullable = false,length = 100)
     private String userId;
 
-    @Column(name = "contact_user_id", nullable = false,length = 100)
+    @Column(name = "contact_user_id",length = 100)
     private String contactUserId;
 
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
+
+    @Enumerated(EnumType.STRING)
+    private ContactStatus status = ContactStatus.ADDED;//default status is ADDED
 
     public Contact() {
     }
