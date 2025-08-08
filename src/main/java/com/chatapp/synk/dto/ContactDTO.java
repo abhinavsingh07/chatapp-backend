@@ -1,6 +1,7 @@
 package com.chatapp.synk.dto;
 
 import com.chatapp.synk.enums.ContactStatus;
+import com.chatapp.synk.enums.EmailStatus;
 import jakarta.validation.constraints.NotBlank;
 
 public class  ContactDTO {
@@ -10,6 +11,7 @@ public class  ContactDTO {
     private String userId;
     private String contactUserId;
     private ContactStatus status;
+    private EmailStatus emailStatus;
 
     public ContactDTO(){
     }
@@ -50,5 +52,13 @@ public class  ContactDTO {
 
     public void setStatus(ContactStatus status) {
         this.status = status;
+    }
+
+    public EmailStatus getEmailStatus() {
+        return emailStatus;
+    }
+
+    public void setEmailStatus(EmailStatus emailStatus) {
+        this.emailStatus = emailStatus;
     }
 }

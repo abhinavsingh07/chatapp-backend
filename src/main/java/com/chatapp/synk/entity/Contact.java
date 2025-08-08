@@ -1,6 +1,7 @@
 package com.chatapp.synk.entity;
 
 import com.chatapp.synk.enums.ContactStatus;
+import com.chatapp.synk.enums.EmailStatus;
 import jakarta.persistence.*;
 
 import java.time.LocalDateTime;
@@ -10,13 +11,13 @@ import java.time.LocalDateTime;
 public class Contact {
 
     @Id
-    @Column(name = "id", nullable = false,length = 100)
+    @Column(name = "id", nullable = false, length = 100)
     private String id;
 
-    @Column(name = "user_id", nullable = false,length = 100)
+    @Column(name = "user_id", nullable = false, length = 100)
     private String userId;
 
-    @Column(name = "contact_user_id",length = 100)
+    @Column(name = "contact_user_id", length = 100)
     private String contactUserId;
 
     @Column(name = "created_at", updatable = false)
@@ -24,6 +25,8 @@ public class Contact {
 
     @Enumerated(EnumType.STRING)
     private ContactStatus status = ContactStatus.ADDED;//default status is ADDED
+    @Enumerated(EnumType.STRING)
+    private EmailStatus emailStatus = EmailStatus.NOT_APPLICABLE;//default email status is NOT_APPLICABLE
 
     public Contact() {
     }
@@ -65,5 +68,19 @@ public class Contact {
         this.createdAt = createdAt;
     }
 
+    public ContactStatus getStatus() {
+        return status;
+    }
 
+    public void setStatus(ContactStatus status) {
+        this.status = status;
+    }
+
+    public EmailStatus getEmailStatus() {
+        return emailStatus;
+    }
+
+    public void setEmailStatus(EmailStatus emailStatus) {
+        this.emailStatus = emailStatus;
+    }
 }

@@ -29,7 +29,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler({ServiceException.class})
     public ResponseEntity<ErrorResponse> handleServiceException(ServiceException exception) {
-        logger.info("ServiceException occurred: {}", exception.getMessage());
+        logger.error("ServiceException occurred: {}", exception.getMessage());
         HttpStatus status = exception.getStatus() != null ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
         ErrorResponse errResp = new ErrorResponse();
         errResp.setErrorMessage(exception.getMessage());
@@ -43,6 +43,16 @@ public class GlobalExceptionHandler {
 
 
         return new ResponseEntity<>(errResp, status);
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ErrorResponse> handleOtherExceptions(Exception ex) {
+        logger.error("Exception occured: {}",ex.getMessage());
+        ErrorResponse errResp = new ErrorResponse();
+        errResp.setResponseCode(HTTP_CODE_INTERNAL_SERVER_ERROR);
+        errResp.setErrorMessage(ex.getMessage());
+        logger.error("An unexpected error occurred: {}", ex.getMessage(), ex);
+        return new ResponseEntity<>(errResp, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

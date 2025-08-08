@@ -1,8 +1,12 @@
 package com.chatapp.synk.service.impl;
 
+import com.api.emailservice.EmailDTO;
+import com.api.emailservice.EmailService;
 import com.chatapp.synk.dto.ContactDTO;
 import com.chatapp.synk.dto.UserDTO;
 import com.chatapp.synk.entity.Contact;
+import com.chatapp.synk.enums.ContactStatus;
+import com.chatapp.synk.enums.EmailStatus;
 import com.chatapp.synk.exceptionHandler.ServiceException;
 import com.chatapp.synk.repository.ContactRepository;
 import com.chatapp.synk.service.ContactService;
@@ -35,6 +39,9 @@ public class ContactServiceImpl implements ContactService {
     @Autowired
     private CacheManager cacheManager;
 
+    @Autowired
+    private EmailService emailService;
+
     @Override
     @CachePut(value = "contactCache", key = "#result.id", unless = "#result == null")
     public ContactDTO addContact(ContactDTO contactDTO) {
@@ -49,14 +56,9 @@ public class ContactServiceImpl implements ContactService {
 
         logger.debug("No existing contact found. Proceeding to save new contact.");
 
-        Contact contactEntity = Mapper.mapToContactEntity(contactDTO);
-        Contact savedContact = contactRepository.save(contactEntity);
-
-        logger.info("Contact saved successfully with ID: {}", savedContact.getId());
-
-        ContactDTO savedDTO = Mapper.mapToContactDTO(savedContact);
-
-        return savedDTO;
+        ContactDTO savedContactDTO = saveContact(contactDTO);
+        logger.info("Contact saved successfully with ID: {}", savedContactDTO.getId());
+        return savedContactDTO;
     }
 
 
@@ -83,7 +85,7 @@ public class ContactServiceImpl implements ContactService {
     }
 
     @Override
-    @Caching(evict = { @CacheEvict(value = "contactCache", key = "#contactId")})
+    @Caching(evict = {@CacheEvict(value = "contactCache", key = "#contactId")})
     public void deleteContact(String contactId) {
         logger.info("Attempting to delete contact with ID: {}", contactId);
 
@@ -94,10 +96,74 @@ public class ContactServiceImpl implements ContactService {
         }
 
         Contact contact = contactOpt.get();
-        String userId = contact.getUserId();
         contactRepository.delete(contact);
         // manual eviction using local variable
+        String userId = contact.getUserId();
         cacheManager.getCache("contactListCache").evict(userId);
         logger.info("Contact with ID {} deleted successfully", contactId);
     }
+
+
+    public ContactDTO addContactEmailFlow(String userId, String email) {
+        logger.info("Attempting to add contact by email: {}", email);
+
+        if (userId == null || email == null || email.isBlank()) {
+            throw new ServiceException("User ID and email are required", HttpStatus.BAD_REQUEST);
+        }
+
+        try {
+            // Check if user exists
+            UserDTO userDTO = userService.getUserByPhoneNumberOrEmail(email);
+
+            // Existing user → Add as contact
+            ContactDTO contactDTO = new ContactDTO();
+            contactDTO.setUserId(userId);
+            contactDTO.setContactUserId(userDTO.getId());
+            contactDTO.setStatus(ContactStatus.ADDED);
+            //contactDTO.setEmailStatus(EmailStatus.NOT_APPLICABLE);
+            return saveContact(contactDTO);
+
+        } catch (ServiceException ex) {
+            if (ex.getStatus() == HttpStatus.NOT_FOUND) {
+                // No existing user → Invite via email
+                ContactDTO contactDTO = new ContactDTO();
+                contactDTO.setUserId(userId);
+                contactDTO.setStatus(ContactStatus.INVITED);
+                contactDTO.setEmailStatus(EmailStatus.PENDING);
+
+                ContactDTO savedContact = saveContact(contactDTO);
+                //this whole is blocking call we need to take out as async call
+                EmailDTO emailDTO = new EmailDTO(email, "You're invited to join ChatApp!", "Hi there!\n\nYou've been invited to join ChatApp. " + "Click the link below to register:\nhttps://yourapp.com/register");
+
+                boolean sent = emailService.sendEmail(emailDTO);
+                savedContact.setEmailStatus(sent ? EmailStatus.SENT : EmailStatus.FAILED);
+
+                // Update with email status
+                saveContact(savedContact);
+                //this whole is blocking call we need to take out as async call
+
+                return savedContact;
+            } else {
+                throw ex;
+            }
+        }
+    }
+
+
+    private ContactDTO saveContact(ContactDTO contactDTO) {
+        try {
+            if (contactDTO.getUserId() == null) {
+                throw new ServiceException("Invalid contact details", HttpStatus.BAD_REQUEST);
+            }
+            logger.info("Saving contact for userId: {}", contactDTO.getUserId());
+            Contact contactEntity = Mapper.mapToContactEntity(contactDTO);
+            Contact saved = contactRepository.save(contactEntity);
+            return Mapper.mapToContactDTO(saved);
+
+        } catch (Exception ex) {
+            logger.error("Error while saving contact: {}", ex.getMessage());
+            throw new ServiceException("Failed to save contact", HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
 }
