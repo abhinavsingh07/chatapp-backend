@@ -1,8 +1,10 @@
 package com.chatapp.synk.service.impl;
 
 import com.chatapp.synk.dto.UserDTO;
+import com.chatapp.synk.entity.Contact;
 import com.chatapp.synk.entity.User;
 import com.chatapp.synk.exceptionHandler.ServiceException;
+import com.chatapp.synk.repository.ContactRepository;
 import com.chatapp.synk.repository.UserRepository;
 import com.chatapp.synk.service.UserService;
 import com.chatapp.synk.util.AppUtils;
@@ -11,14 +13,15 @@ import com.chatapp.synk.util.StringUtility;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -33,18 +36,21 @@ public class UserServiceImpl implements UserService {
     @Autowired
     public PasswordEncoder passwordEncoder;
 
-    //id is userId
-    @Override
-    @Cacheable(value = "userCache", key = "#userId", unless = "#result == null")
-    public UserDTO getUserById(String userId) {
-        logger.info("Fetching user by ID: {}", userId);
-        Optional<UserDTO> result = userRepository.findById(userId).map(Mapper::mapToUserDTO);
+    @Autowired
+    private CacheManager cacheManager;
+    @Autowired
+    private ContactRepository contactRepository;
 
-        if (result.isEmpty()) {
-            logger.warn("No user found with ID: {}", userId);
-            throw new ServiceException("User not found with ID", HttpStatus.NOT_FOUND);
-        }
-        return result.get();
+    //id is userId
+
+    @Override
+    @Cacheable(value = "userListCache", key = "'allUsers'", unless = "#result == null or #result.isEmpty()")
+    public List<UserDTO> getAllUsers() {
+        logger.info("Fetching all users");
+        List<UserDTO> allusers = userRepository.findAll().stream().map(Mapper::mapToUserDTO).collect(Collectors.toList());
+        //remove password from all users
+        allusers.forEach(user -> user.setPassword("********")); // Mask passwords
+        return allusers;
     }
 
     @Override
@@ -77,56 +83,63 @@ public class UserServiceImpl implements UserService {
         }
 
         // Manually cache this using CacheManager (optional)
-        // cacheManager.getCache("userCache").put(userDTO.getId(), userDTO);
+        //cacheManager.getCache("userCache").put(result.get().getId(), result.get());
 
         return result.get();
     }
 
     @Override
-    //caching not needed if we create new user it is not coming here
-    public List<UserDTO> searchUsers(String phonePart, String emailPart) {
-        logger.info("Searching users with query params");
+    @Cacheable(value = "userCache", key = "#userId", unless = "#result == null")
+    public UserDTO getUserById(String userId) {
+        logger.info("Fetching user by ID: {}", userId);
+        Optional<UserDTO> result = userRepository.findById(userId).map(Mapper::mapToUserDTO);
 
-        List<User> users = new ArrayList<>();
-        //trim the input to avoid unnecessary spaces
-        phonePart = phonePart != null ? phonePart.trim() : null;
-        emailPart = emailPart != null ? emailPart.trim() : null;
-        //if both are null or empty we return empty list
-        if ((phonePart != null && !phonePart.trim().isEmpty()) || (emailPart != null && !emailPart.trim().isEmpty())) {
-            users = userRepository.findByEmailContainingIgnoreCaseOrPhoneNumberContaining(emailPart, phonePart);
-            logger.info("Found {} user(s) matching query parameters'", users.size());
+        if (result.isEmpty()) {
+            logger.warn("No user found with ID: {}", userId);
+            throw new ServiceException("User not found with ID", HttpStatus.NOT_FOUND);
         }
-        return users.stream().map(Mapper::mapToUserDTO).collect(Collectors.toList());
+
+        UserDTO userDTO= result.get();
+        userDTO.setPassword("********"); // Mask password for security
+        return result.get();
     }
 
-    @Override
-    public List<UserDTO> getAllUsers() {
-        logger.info("Fetching all users");
-        List<UserDTO> allusers = userRepository.findAll()
-                .stream()
-                .map(Mapper::mapToUserDTO).collect(Collectors.toList());
-        //remove password from all users
-        allusers.forEach(user -> user.setPassword("********")); // Mask passwords
-        return allusers;
-    }
 
     @Override
+    @Transactional//Now the entire flow, including saving user and updating contacts, happens in a single transaction.
     @CachePut(value = "userCache", key = "#result.id", unless = "#result == null")
-    public UserDTO createUser(UserDTO userDTO) throws ServiceException {
+    public UserDTO createUser(UserDTO userDTO) {
         logger.info("Creating new user with phone: {}", userDTO.getPhoneNumber());
         try {
             User user = Mapper.mapToUserEntity(userDTO, passwordEncoder);
             User savedUser = userRepository.save(user);
             logger.info("User saved successfully with ID: {}", savedUser.getId());
+            handleInvitedFlow(savedUser);
+
             return Mapper.mapToUserDTO(savedUser);
         } catch (Exception ex) {
             logger.error("Unexpected error while creating user", ex);
             throw new ServiceException(ex.getMessage());
         }
     }
+
+
+    private void handleInvitedFlow(User savedUser) {
+        logger.info("Handling invited flow for user: {}", savedUser.getEmail());
+        List<Contact> contacts = contactRepository.findByEmailAndContactUserIdIsNull(savedUser.getEmail());
+        if (!contacts.isEmpty()) {
+            // Update contacts whose email matches this new user’s email but have null contactUserId
+            int updatedCount = contactRepository.updateContactUserIdByEmail(savedUser.getId(), savedUser.getEmail());
+            logger.info("Updated contactUserId for {} contacts matching email  {}", updatedCount, savedUser.getEmail());
+        } else {
+            logger.info("No pending contacts to update for email {}", savedUser.getEmail());
+        }
+    }
+
+
     @Override
     @CachePut(value = "userCache", key = "#userId", unless = "#result == null")
-    public UserDTO updateUser(String userId, UserDTO userDTO) throws ServiceException {
+    public UserDTO updateUser(String userId, UserDTO userDTO) {
         logger.info("Updating user with ID: {}", userId);
 
         Optional<User> optionalUser = userRepository.findById(userId);

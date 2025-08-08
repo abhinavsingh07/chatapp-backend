@@ -38,9 +38,9 @@ public class User {
     @Column(name = "updated_at")
     //LocalDateTime is DATETIME data type in db
     private LocalDateTime updatedAt;
-
+    @Column(name = "status")
     @Enumerated(EnumType.STRING)
-    private UserStatus status = UserStatus.ACTIVE;//default status is ACTIVE
+    private UserStatus status;
 
     // Constructors
     public User() {

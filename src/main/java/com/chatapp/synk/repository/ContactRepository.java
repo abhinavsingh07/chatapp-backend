@@ -1,7 +1,11 @@
 package com.chatapp.synk.repository;
 
+import com.chatapp.synk.dto.ContactUserDTO;
 import com.chatapp.synk.entity.Contact;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -11,4 +15,17 @@ public interface ContactRepository extends JpaRepository<Contact, String> {
     List<Contact> findByUserIdAndContactUserId(String userId, String contactUserId);
 
     List<Contact> findAllByUserId(String userId);
+
+    List<Contact> findByEmailAndContactUserIdIsNull(String email);
+
+    @Query("SELECT new com.chatapp.synk.dto.ContactUserDTO(c.id, c.contactStatus, c.emailStatus, c.contactUserId, " + "u.name, u.phoneNumber, u.email, u.profilePictureUrl, u.status) " + "FROM Contact c JOIN User u ON c.contactUserId = u.id " + "WHERE c.userId = :userId")
+    List<ContactUserDTO> findContactUserDetailsByUserId(@Param("userId") String userId);
+
+    @Query("SELECT new com.chatapp.synk.dto.ContactUserDTO(" + "c.id, c.contactStatus, c.emailStatus, c.contactUserId, " + "u.name, u.phoneNumber, u.email, u.profilePictureUrl, u.status) " + "FROM Contact c JOIN User u ON c.contactUserId = u.id")
+    List<ContactUserDTO> findAllContactsWithUserDetails();
+
+    @Modifying
+    @Query("UPDATE Contact c SET c.contactUserId = :userId WHERE c.email = :email AND c.contactUserId IS NULL")
+    int updateContactUserIdByEmail(@Param("userId") String userId, @Param("email") String email);
+
 }

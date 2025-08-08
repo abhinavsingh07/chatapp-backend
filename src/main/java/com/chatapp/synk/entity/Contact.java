@@ -29,6 +29,9 @@ public class Contact {
     @Enumerated(EnumType.STRING)
     private EmailStatus emailStatus;
 
+    @Column(name = "email", length = 100)
+    private String email;
+
     public Contact() {
     }
 
@@ -83,5 +86,13 @@ public class Contact {
 
     public void setEmailStatus(EmailStatus emailStatus) {
         this.emailStatus = emailStatus;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
     }
 }

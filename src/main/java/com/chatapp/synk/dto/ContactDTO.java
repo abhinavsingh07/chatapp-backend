@@ -15,6 +15,8 @@ public class  ContactDTO {
     private ContactStatus contactStatus;
     private EmailStatus emailStatus;
 
+    private UserDTO user;
+
     public ContactDTO(){
     }
 
@@ -70,5 +72,13 @@ public class  ContactDTO {
 
     public void setEmail(String email) {
         this.email = email;
+    }
+
+    public UserDTO getUser() {
+        return user;
+    }
+
+    public void setUser(UserDTO user) {
+        this.user = user;
     }
 }

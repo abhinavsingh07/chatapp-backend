@@ -3,6 +3,7 @@ package com.chatapp.synk.service.impl;
 import com.api.emailservice.EmailDTO;
 import com.api.emailservice.EmailService;
 import com.chatapp.synk.dto.ContactDTO;
+import com.chatapp.synk.dto.ContactUserDTO;
 import com.chatapp.synk.dto.UserDTO;
 import com.chatapp.synk.entity.Contact;
 import com.chatapp.synk.enums.ContactStatus;
@@ -18,7 +19,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
 import org.springframework.http.HttpStatus;
@@ -49,25 +49,25 @@ public class ContactServiceImpl implements ContactService {
     private ExecutorService taskExecutor;
 
     @Override
-    @Cacheable(value = "contactListCache", key = "#userId")
-    public List<UserDTO> getContactsByUserId(String userId) {
+    @Cacheable(value = "contactListCache", key = "#userId", unless = "#result == null || #result.isEmpty()")
+    public List<ContactDTO> getContactsByUserId(String userId) {
         logger.info("Fetching contacts for userId: {}", userId);
-
         List<Contact> contactList = contactRepository.findAllByUserId(userId);
-        logger.debug("Found {} contacts for userId {}", contactList.size(), userId);
-        //we are not using hibernate mapping explicitly we are fetching relations.
-        List<UserDTO> userDTOList = contactList.stream().map(contact -> {
-            String contactUserId = contact.getContactUserId();
-            logger.debug("Fetching UserDTO for contactUserId: {}", contactUserId);
-            UserDTO userDTO = userService.getUserById(contactUserId);
-            if (userDTO == null) {
-                logger.warn("UserDTO not found for contactUserId: {}", contactUserId);
-            }
-            return userDTO;
-        }).filter(Objects::nonNull).collect(Collectors.toList());
+        logger.info("Returning {} Contact for userId {}", contactList.size(), userId);
+        return contactList.stream().filter(Objects::nonNull).map(Mapper::mapToContactDTO).collect(Collectors.toList());
 
-        logger.info("Returning {} UserDTOs for userId {}", userDTOList.size(), userId);
-        return userDTOList;
+    }
+
+    @Override
+    @Cacheable(value = "contactListCache", key = "#userId != null && !#userId.isEmpty() ? #userId : 'ALL_CONTACTS'", unless = "#result == null || #result.isEmpty()")
+    public List<ContactUserDTO> getContacts(String userId) {
+        if (userId != null && !userId.isEmpty()) {
+            logger.info("Fetching contacts for userId: {}", userId);
+            return contactRepository.findContactUserDetailsByUserId(userId);
+        } else {
+            logger.info("Fetching all contacts with user mapping");
+            return contactRepository.findAllContactsWithUserDetails();
+        }
     }
 
     @Override
@@ -82,17 +82,18 @@ public class ContactServiceImpl implements ContactService {
         }
 
         Contact contact = contactOpt.get();
-        contactRepository.delete(contact);
-        // manual eviction using local variable
         String userId = contact.getUserId();
+        contactRepository.delete(contact);
+
+        // manual eviction using local variable
         cacheManager.getCache("contactListCache").evict(userId);
         logger.info("Contact with ID {} deleted successfully", contactId);
     }
 
     @Override
-    @CachePut(value = "contactCache", key = "#result.id", unless = "#result == null")
+    //@CachePut(value = "contactCache", key = "#result.id", unless = "#result == null")
     public ContactDTO addContact(ContactDTO dto) {
-        String userId= dto.getUserId();
+        String userId = dto.getUserId();
         String email = dto.getEmail();
         logger.info("Adding contact for userId={} by email={}", userId, email);
 
@@ -124,6 +125,7 @@ public class ContactServiceImpl implements ContactService {
             contactDTO.setContactUserId(existingUser.getId());//contact userid setting
             contactDTO.setContactStatus(ContactStatus.ADDED);
             contactDTO.setEmailStatus(EmailStatus.NOT_APPLICABLE);
+            contactDTO.setEmail(email);
 
             return saveContact(contactDTO);
 
@@ -145,21 +147,14 @@ public class ContactServiceImpl implements ContactService {
         contactDTO.setContactUserId(null);//contact user id is null for invite
         contactDTO.setContactStatus(ContactStatus.INVITED);
         contactDTO.setEmailStatus(EmailStatus.PENDING);
-
+        contactDTO.setEmail(email);
         ContactDTO savedContact = saveContact(contactDTO);
 
         // Send invite asynchronously
         CompletableFuture.runAsync(() -> {
-            boolean sent = emailService.sendEmail(
-                    new EmailDTO(
-                            email,
-                            "You're invited to join ChatApp!",
-                            "Hi there!\n\nYou've been invited to join ChatApp. " +
-                                    "Click here to register:\nhttps://yourapp.com/register"
-                    )
-            );
+            boolean sent = emailService.sendEmail(new EmailDTO(email, "You're invited to join ChatApp!", "Hi there!\n\nYou've been invited to join ChatApp. " + "Click here to register:\nhttps://yourapp.com/register"));
             updateEmailStatus(savedContact.getId(), sent ? EmailStatus.SENT : EmailStatus.FAILED);
-        },taskExecutor);//use our thread pool not fork join pool
+        }, taskExecutor);//use our thread pool not fork join pool
 
         return savedContact;
     }
@@ -171,6 +166,7 @@ public class ContactServiceImpl implements ContactService {
     private void updateEmailStatus(String contactId, EmailStatus status) {
         contactRepository.findById(contactId).ifPresent(contact -> {
             contact.setEmailStatus(status);
+            contact.setContactStatus(ContactStatus.ADDED);
             contactRepository.save(contact);
         });
     }

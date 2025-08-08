@@ -8,6 +8,7 @@ import com.chatapp.synk.entity.Contact;
 import com.chatapp.synk.entity.Conversation;
 import com.chatapp.synk.entity.ConversationParticipant;
 import com.chatapp.synk.entity.User;
+import com.chatapp.synk.enums.UserStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 public class Mapper {
@@ -29,7 +30,7 @@ public class Mapper {
         dto.setProfilePictureUrl(user.getProfilePictureUrl());
         dto.setAbout(user.getAbout());
         dto.setEmail(user.getEmail());
-        dto.setStatus(user.getStatus() != null ? user.getStatus() : null);
+        dto.setStatus(user.getStatus());
         return dto;
     }
 
@@ -43,7 +44,7 @@ public class Mapper {
         user.setProfilePictureUrl(dto.getProfilePictureUrl());
         user.setAbout(dto.getAbout());
         user.setEmail(dto.getEmail());
-        user.setStatus(dto.getStatus());
+        user.setStatus(UserStatus.ACTIVE);
         return user;
     }
 
@@ -55,6 +56,7 @@ public class Mapper {
         contact.setContactUserId(dto.getContactUserId());
         contact.setContactStatus(dto.getContactStatus());
         contact.setEmailStatus(dto.getEmailStatus());
+        contact.setEmail(dto.getEmail());
         return contact;
     }
 
@@ -65,6 +67,7 @@ public class Mapper {
         dto.setContactUserId(contact.getContactUserId());
         dto.setContactStatus(contact.getContactStatus());
         dto.setEmailStatus(contact.getEmailStatus());
+        dto.setEmail(contact.getEmail());
         return dto;
     }
 

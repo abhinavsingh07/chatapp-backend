@@ -6,13 +6,11 @@ import java.util.List;
 
 
 public interface UserService {
-    UserDTO getUserById(String userId);
+    List<UserDTO> getAllUsers();
 
     UserDTO getUserByPhoneNumberOrEmail(String phoneNumberOrEmail);
 
-    List<UserDTO> searchUsers(String phonePart, String emailPart);
-
-    List<UserDTO> getAllUsers();
+    UserDTO getUserById(String userId);
 
     UserDTO createUser(UserDTO userDTO);
 
