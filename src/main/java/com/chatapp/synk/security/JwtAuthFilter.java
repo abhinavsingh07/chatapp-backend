@@ -1,7 +1,6 @@
 package com.chatapp.synk.security;
 
 import com.chatapp.synk.exceptionHandler.ServiceException;
-import com.chatapp.synk.util.JwtUtil;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;

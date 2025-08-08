@@ -6,7 +6,7 @@ import com.chatapp.synk.repository.UserRepository;
 import com.chatapp.synk.security.CustomUserDetails;
 import com.chatapp.synk.security.CustomUserDetailsService;
 import com.chatapp.synk.service.UserService;
-import com.chatapp.synk.util.JwtUtil;
+import com.chatapp.synk.security.JwtUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;

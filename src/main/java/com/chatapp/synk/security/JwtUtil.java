@@ -1,4 +1,4 @@
-package com.chatapp.synk.util;
+package com.chatapp.synk.security;
 
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;

@@ -9,7 +9,7 @@ import com.chatapp.synk.security.CustomUserDetailsService;
 import com.chatapp.synk.security.JwtResponse;
 import com.chatapp.synk.security.PhoneNumberAuthenticationToken;
 import com.chatapp.synk.service.UserService;
-import com.chatapp.synk.util.JwtUtil;
+import com.chatapp.synk.security.JwtUtil;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
