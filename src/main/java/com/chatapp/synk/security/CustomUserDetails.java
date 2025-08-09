@@ -17,8 +17,6 @@ public class CustomUserDetails implements UserDetails {
     private String userRoles;
     private String profilePictureUrl;
     private String id;
-
-
     @JsonIgnore
     private Collection<? extends GrantedAuthority> authorities;
 
@@ -27,6 +25,7 @@ public class CustomUserDetails implements UserDetails {
 
     /**
      * Constructor for CustomUserDetails.
+     * calling in loadsUserByUsername method of CustomUserDetailsService
      *
      * @param username          the username (phone number)
      * @param name              the name of the user
@@ -36,20 +35,20 @@ public class CustomUserDetails implements UserDetails {
      * @param profilePictureUrl the URL of the user's profile picture
      * @param id                the unique identifier of the user
      */
-    public CustomUserDetails(String username, String name, String password, Collection<? extends GrantedAuthority> authorities, String email, String profilePictureUrl,String id) {
+    public CustomUserDetails(String username, String name, String password, Collection<? extends GrantedAuthority> authorities, String email, String profilePictureUrl, String id) {
+        this.id = id;
         this.username = username;
         this.password = password;
         this.authorities = authorities;
         this.name = name;
         this.email = email;
         this.profilePictureUrl = profilePictureUrl;
-        this.id= id;
         //give me uthorities as comma seprated
         this.userRoles = authorities.stream().map(GrantedAuthority::getAuthority).reduce((a, b) -> a + ";" + b).orElse("");
     }
 
     //this is using in test
-    public CustomUserDetails(String username, String name, String email,String userRole, String profilePictureUrl) {
+    public CustomUserDetails(String username, String name, String email, String userRole, String profilePictureUrl) {
         this.username = username;
         this.name = name;
         this.email = email;
@@ -91,6 +90,8 @@ public class CustomUserDetails implements UserDetails {
     public boolean isEnabled() {
         return UserDetails.super.isEnabled();
     }
+
+    //custom attributes
 
     public String getName() {
         return name;

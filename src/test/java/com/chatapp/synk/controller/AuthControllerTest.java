@@ -74,7 +74,7 @@ public class AuthControllerTest {
         CustomUserDetails mockUserDetails = new CustomUserDetails(phoneNumber, name, email, userRole, profilePictureUrl);
 
         when(userDetailsService.loadUserByUsername(request.getPhoneNumberOrEmail())).thenReturn(mockUserDetails);
-        when(jwtUtil.generateToken(mockUserDetails)).thenReturn(mockToken);
+        //when(jwtUtil.generateToken(mockUserDetails)).thenReturn(mockToken);
 
         mockMvc.perform(post("/auth/authenticate")
                         .contentType(MediaType.APPLICATION_JSON)

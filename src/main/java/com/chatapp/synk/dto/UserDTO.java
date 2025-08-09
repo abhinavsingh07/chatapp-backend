@@ -1,6 +1,7 @@
 package com.chatapp.synk.dto;
 
 
+import com.chatapp.synk.enums.RoleName;
 import com.chatapp.synk.enums.UserStatus;
 import jakarta.validation.constraints.NotBlank;
 
@@ -17,8 +18,8 @@ public class UserDTO {
     private String name;
     private String profilePictureUrl;
     private String about;
-    private String userRoles;
     private UserStatus status;
+    private RoleName roleName;
 
     public UserDTO() {
     }
@@ -91,19 +92,19 @@ public class UserDTO {
         this.email = email;
     }
 
-    public String getUserRoles() {
-        return userRoles;
-    }
-
-    public void setUserRoles(String userRoles) {
-        this.userRoles = userRoles;
-    }
-
     public UserStatus getStatus() {
         return status;
     }
 
     public void setStatus(UserStatus status) {
         this.status = status;
+    }
+
+    public RoleName getRoleName() {
+        return roleName;
+    }
+
+    public void setRoleName(RoleName roleName) {
+        this.roleName = roleName;
     }
 }

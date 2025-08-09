@@ -8,7 +8,6 @@ import com.chatapp.synk.entity.Contact;
 import com.chatapp.synk.entity.Conversation;
 import com.chatapp.synk.entity.ConversationParticipant;
 import com.chatapp.synk.entity.User;
-import com.chatapp.synk.enums.UserStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 public class Mapper {
@@ -22,6 +21,7 @@ public class Mapper {
         dto.setAbout(user.getAbout());
         dto.setEmail(user.getEmail());
         dto.setStatus(user.getStatus());
+        dto.setRoleName(user.getUserRole());
         return dto;
     }
 
@@ -35,7 +35,8 @@ public class Mapper {
         user.setProfilePictureUrl(dto.getProfilePictureUrl());
         user.setAbout(dto.getAbout());
         user.setEmail(dto.getEmail());
-        user.setStatus(UserStatus.ACTIVE);
+        //user.setStatus(UserStatus.ACTIVE); Inserting from entity lifecycle hook
+        //user.setUserRole(RoleName.ROLE_USER);//inserting in servicelayer
         return user;
     }
 

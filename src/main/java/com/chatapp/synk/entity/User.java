@@ -9,9 +9,9 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "users", schema = "chatapp")
 public class User {
-    public  static final String ALIAS_USER = "USER";
+    public static final String ALIAS_USER = "USER";
     @Id
-    @Column(name = "id", nullable = false,length = 100)
+    @Column(name = "id", nullable = false, length = 100)
     private String id;
 
     @Column(name = "phone_number", length = 15)
@@ -51,12 +51,11 @@ public class User {
     public User() {
     }
 
-    public User(String id, String phoneNumber,String email, String password, String name, String profilePictureUrl,
-                String about, LocalDateTime createdAt, LocalDateTime updatedAt) {
+    public User(String id, String phoneNumber, String email, String password, String name, String profilePictureUrl, String about, LocalDateTime createdAt, LocalDateTime updatedAt) {
         this.id = id;
         this.phoneNumber = phoneNumber;
         this.email = email;
-        this.password=password;
+        this.password = password;
         this.name = name;
         this.profilePictureUrl = profilePictureUrl;
         this.about = about;
@@ -67,7 +66,11 @@ public class User {
     // Lifecycle hooks
     @PrePersist
     protected void onCreate() {
+
         createdAt = updatedAt = LocalDateTime.now();
+        if (status == null) {
+            status = UserStatus.ACTIVE; // Default status
+        }
     }
 
     @PreUpdate

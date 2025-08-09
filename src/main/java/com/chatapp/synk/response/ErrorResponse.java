@@ -9,6 +9,16 @@ public class ErrorResponse<T> {
     private HttpStatus error;
     private String errorMessage;
 
+    public ErrorResponse(int responseCode, HttpStatus error, String errorMessage) {
+        this.responseCode = responseCode;
+        this.error = error;
+        this.errorMessage = errorMessage;
+    }
+
+    public ErrorResponse() {
+        // Default constructor for deserialization
+    }
+
     private List<T> errors;
 
     public int getResponseCode() {

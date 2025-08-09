@@ -32,9 +32,9 @@ import org.springframework.stereotype.Component;
 public class PhoneNumberAuthenticationProvider implements AuthenticationProvider {
     private static final Logger logger = LoggerFactory.getLogger(PhoneNumberAuthenticationProvider.class);
     @Autowired
-    private UserDetailsService userDetailsService;//passing from security config inside authenticationProvider() method
+    private UserDetailsService userDetailsService;
     @Autowired
-    private PasswordEncoder passwordEncoder;//passing from security config inside authenticationProvider() method
+    private PasswordEncoder passwordEncoder;
 
     @Override
     public Authentication authenticate(Authentication authentication) throws AuthenticationException {
@@ -54,9 +54,9 @@ public class PhoneNumberAuthenticationProvider implements AuthenticationProvider
             throw new BadCredentialsException("Invalid password");
         }
         //constructor sets is authenticated true
-        PhoneNumberAuthenticationToken authenticatedToken = new PhoneNumberAuthenticationToken(userDetails,userDetails.getAuthorities());
-        authenticatedToken.setAuthenticated(true);
-        authenticatedToken.setDetails(userDetails); // optional, useful for downstream access
+        PhoneNumberAuthenticationToken authenticatedToken = new PhoneNumberAuthenticationToken(userDetails, password, userDetails.getAuthorities());
+        //authenticatedToken.setAuthenticated(true);
+        //authenticatedToken.setDetails(userDetails); // optional, useful for downstream access
         // Log successful authentication
         logger.debug("Authentication successful for identifier: {}", identifier);
         return authenticatedToken;

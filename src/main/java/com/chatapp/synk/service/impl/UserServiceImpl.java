@@ -3,9 +3,12 @@ package com.chatapp.synk.service.impl;
 import com.chatapp.synk.dto.UserDTO;
 import com.chatapp.synk.entity.Contact;
 import com.chatapp.synk.entity.User;
+import com.chatapp.synk.entity.UserRole;
+import com.chatapp.synk.enums.RoleName;
 import com.chatapp.synk.exceptionHandler.ServiceException;
 import com.chatapp.synk.repository.ContactRepository;
 import com.chatapp.synk.repository.UserRepository;
+import com.chatapp.synk.repository.UserRoleRepository;
 import com.chatapp.synk.service.UserService;
 import com.chatapp.synk.util.AppUtils;
 import com.chatapp.synk.util.Mapper;
@@ -40,6 +43,8 @@ public class UserServiceImpl implements UserService {
     private CacheManager cacheManager;
     @Autowired
     private ContactRepository contactRepository;
+    @Autowired
+    private UserRoleRepository userRoleRepository;
 
     //id is userId
 
@@ -112,6 +117,11 @@ public class UserServiceImpl implements UserService {
         logger.info("Creating new user with phone: {}", userDTO.getPhoneNumber());
         try {
             User user = Mapper.mapToUserEntity(userDTO, passwordEncoder);
+            // Always assign ROLE_USER by default
+            UserRole userRole = userRoleRepository.findByName(RoleName.ROLE_USER)
+                    .orElseThrow(() -> new RuntimeException("Default role not found"));
+            user.setUserRole(userRole.getName());
+
             User savedUser = userRepository.save(user);
             logger.info("User saved successfully with ID: {}", savedUser.getId());
             handleInvitedFlow(savedUser);

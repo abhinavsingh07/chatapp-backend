@@ -47,6 +47,7 @@ public class DataInitializer implements CommandLineRunner {
         String adminPhone = "1234567890"; // Default phone number, change in prod!
         String adminName = "Admin User"; // Default username, change in prod!
         if (userRepository.findByEmail(adminEmail).isEmpty()) {
+            logger.info("Creating default admin user");
             User adminUser = new User();
             adminUser.setId(RandomUUIDGenerater.getId(User.ALIAS_USER).toString());
             adminUser.setPhoneNumber(adminPhone);

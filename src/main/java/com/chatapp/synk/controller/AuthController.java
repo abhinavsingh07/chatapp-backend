@@ -4,12 +4,8 @@ import com.chatapp.synk.dto.AuthDTO;
 import com.chatapp.synk.dto.UserDTO;
 import com.chatapp.synk.exceptionHandler.ServiceException;
 import com.chatapp.synk.response.SuccessResponse;
-import com.chatapp.synk.security.CustomUserDetails;
-import com.chatapp.synk.security.CustomUserDetailsService;
-import com.chatapp.synk.security.JwtResponse;
-import com.chatapp.synk.security.PhoneNumberAuthenticationToken;
+import com.chatapp.synk.security.*;
 import com.chatapp.synk.service.UserService;
-import com.chatapp.synk.security.JwtUtil;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,12 +14,16 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/auth")
@@ -46,22 +46,31 @@ public class AuthController {
     @PostMapping("/authenticate")
     public ResponseEntity<JwtResponse> authenticate(@RequestBody AuthDTO authDTO) throws ServiceException {
         logger.info("Authenticating user with phone number: {}", authDTO.getPhoneNumberOrEmail());
-
-        authenticate(authDTO.getPhoneNumberOrEmail(), authDTO.getPassword());
+        //authenticate user using phone number or email and password
+        Authentication auth = authenticate(authDTO.getPhoneNumberOrEmail(), authDTO.getPassword());
         //token generation flow
-        CustomUserDetails userDetails = userDetailsService.loadUserByUsername(authDTO.getPhoneNumberOrEmail());
-        String token = jwtUtil.generateToken(userDetails);
+        CustomUserDetails user = (CustomUserDetails) auth.getPrincipal();//it has userdetails called in phonenoauthprovder by constructor we are setting when user verfies.
+        // Add all required claims
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("roles", user.getAuthorities().stream().map(authObj -> authObj.getAuthority()).collect(Collectors.toList()));
+        claims.put("id", user.getId());
+        claims.put("name", user.getName());
+        claims.put("email", user.getEmail());
+        claims.put("profilePictureUrl", user.getProfilePictureUrl());
 
+        // Generate JWT token
+        String token = jwtUtil.generateToken(claims, user.getUsername());
         logger.info("JWT token generated successfully for user: {}", authDTO.getPhoneNumberOrEmail());
-        return ResponseEntity.ok(new JwtResponse(token, userDetails.getUsername(),userDetails.getName(),userDetails.getUserRoles(),userDetails.getEmail(),userDetails.getProfilePictureUrl(),userDetails.getId()));
+        return ResponseEntity.ok(new JwtResponse(token,user.getEmail(), user.getName(), user.getUserRoles(), user.getEmail(), user.getProfilePictureUrl(), user.getId()));
     }
 
-    private void authenticate(String username, String password) throws ServiceException {
+    private Authentication authenticate(String username, String password) throws ServiceException {
         try {
             logger.info("Attempting authentication for user: {}", username);
             //internally call our custom PhoneNumberAuthenticationProvider authenticate method
-            authenticationManager.authenticate(new PhoneNumberAuthenticationToken(username, password));
+            Authentication auth = authenticationManager.authenticate(new PhoneNumberAuthenticationToken(username, password));
             logger.info("Authentication successful for user: {}", username);
+            return auth;
         } catch (DisabledException e) {
             logger.error("User account is disabled: {}", username);
             throw new ServiceException("USER_DISABLED", e);
