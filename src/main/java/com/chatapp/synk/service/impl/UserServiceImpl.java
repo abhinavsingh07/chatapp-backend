@@ -21,6 +21,7 @@ import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -98,14 +99,14 @@ public class UserServiceImpl implements UserService {
     @Cacheable(value = "userCache", key = "#userId", unless = "#result == null")
     public UserDTO getUserById(String userId) {
         logger.info("Fetching user by ID: {}", userId);
-        Optional<UserDTO> result = userRepository.findById(userId).map(Mapper::mapToUserDTO);
+        Optional<UserDTO> result = userRepository.findById(userId.trim()).map(Mapper::mapToUserDTO);
 
         if (result.isEmpty()) {
             logger.warn("No user found with ID: {}", userId);
             throw new ServiceException("User not found with ID", HttpStatus.NOT_FOUND);
         }
 
-        UserDTO userDTO= result.get();
+        UserDTO userDTO = result.get();
         userDTO.setPassword("********"); // Mask password for security
         return result.get();
     }
@@ -113,14 +114,14 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional//Now the entire flow, including saving user and updating contacts, happens in a single transaction.
-    @CachePut(value = "userCache", key = "#result.id", unless = "#result == null")
+    @Caching(put = {@CachePut(value = "userCache", key = "#result.id", unless = "#result == null")},
+            evict = {@CacheEvict(value = "userListCache", key = "'allUsers'")})
     public UserDTO createUser(UserDTO userDTO) {
         logger.info("Creating new user with phone: {}", userDTO.getPhoneNumber());
         try {
             User user = Mapper.mapToUserEntity(userDTO, passwordEncoder);
             // Always assign ROLE_USER by default
-            UserRole userRole = userRoleRepository.findByName(RoleName.ROLE_USER)
-                    .orElseThrow(() -> new RuntimeException("Default role not found"));
+            UserRole userRole = userRoleRepository.findByName(RoleName.ROLE_USER).orElseThrow(() -> new RuntimeException("Default role not found"));
             user.setUserRole(userRole.getName());
 
             User savedUser = userRepository.save(user);
@@ -150,7 +151,8 @@ public class UserServiceImpl implements UserService {
 
 
     @Override
-    @CachePut(value = "userCache", key = "#userId", unless = "#result == null")
+    @Caching(put = {@CachePut(value = "userCache", key = "#userId", unless = "#result == null")},
+            evict = {@CacheEvict(value = "userListCache", key = "'allUsers'")})
     public UserDTO updateUser(String userId, UserDTO userDTO) {
         logger.info("Updating user with ID: {}", userId);
 
@@ -176,10 +178,13 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    @CacheEvict(value = "userCache", key = "#userId")
+    @Caching(evict = {
+            @CacheEvict(value = "userCache", key = "#userId"),      // evict single user
+            @CacheEvict(value = "userListCache", key = "'allUsers'") // evict cached user list
+    })
     public void deleteUser(String userId) {
         logger.info("Deleting user with ID: {}", userId);
-        userRepository.deleteById(userId);
+        userRepository.deleteById(userId.trim());
         logger.info("User with ID {} deleted successfully", userId);
     }
 }

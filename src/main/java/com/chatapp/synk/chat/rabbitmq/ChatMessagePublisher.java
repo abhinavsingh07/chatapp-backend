@@ -49,7 +49,8 @@ public class ChatMessagePublisher {
         DeliveryEnvelope env = new DeliveryEnvelope(msg, toUserId, serverId, targetSessionId);
         try {
             String json = Json.mapper().writeValueAsString(env);
-            rabbitTemplate.convertAndSend(ChatUtil.EXCHANGE_NAME, ChatUtil.buildRoutingKey(serverId), json);
+            String routingKey=ChatUtil.buildBindingKey(serverId);//for direct routing key==binding key
+            rabbitTemplate.convertAndSend(ChatUtil.EXCHANGE_NAME, routingKey, json);//publish to queue
             logger.info("Published message to exchange={} with routingKey=server.{} for userId={}", ChatUtil.EXCHANGE_NAME, serverId, toUserId);
         } catch (Exception e) {
             logger.error("Failed to publish message for userId={}", toUserId, e);

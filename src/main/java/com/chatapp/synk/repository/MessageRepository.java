@@ -11,6 +11,6 @@ public interface MessageRepository extends JpaRepository<Message, String> {
 
     List<Message> findByConversationIdOrderBySentAtAsc(String conversationId);
 
-    List<Message> findByReceiverIdAndIsReadFalse(String receiverId);
+    List<Message> findByConversationIdAndReceiverId(String conversationId, String receiverId);
 
 }

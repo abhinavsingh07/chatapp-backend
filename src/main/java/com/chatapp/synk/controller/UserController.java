@@ -3,6 +3,7 @@ package com.chatapp.synk.controller;
 import com.chatapp.synk.dto.UserDTO;
 import com.chatapp.synk.response.SuccessResponse;
 import com.chatapp.synk.service.UserService;
+import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,7 +24,7 @@ public class UserController {
     private UserService userService;
 
     @GetMapping("/all")
-    public ResponseEntity<SuccessResponse<UserDTO>> getAllUsers(){
+    public ResponseEntity<SuccessResponse<UserDTO>> getAllUsers() {
         logger.info("Fetching all users");
         List<UserDTO> users = userService.getAllUsers();
         if (users.isEmpty()) {
@@ -36,7 +37,7 @@ public class UserController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<SuccessResponse<UserDTO>> getUserById(@PathVariable String id) {
+    public ResponseEntity<SuccessResponse<UserDTO>> getUserById(@PathVariable(required = true) String id) {
         logger.info("Fetching user with ID: {}", id);
 
         UserDTO userOpt = userService.getUserById(id);
@@ -50,7 +51,7 @@ public class UserController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<SuccessResponse<UserDTO>> updateUser(@PathVariable String id, @RequestBody UserDTO userDTO) {
+    public ResponseEntity<SuccessResponse<UserDTO>> updateUser(@PathVariable(required = true) String id, @Valid @RequestBody UserDTO userDTO) {
         logger.info("Received update request for user ID: {}", id);
 
         UserDTO updatedUser = userService.updateUser(id, userDTO);
@@ -60,7 +61,7 @@ public class UserController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<SuccessResponse<Void>> deleteUser(@PathVariable String id) {
+    public ResponseEntity<SuccessResponse<Void>> deleteUser(@PathVariable(required = true) String id) {
         logger.info("Received delete request for user ID: {}", id);
 
         userService.deleteUser(id);

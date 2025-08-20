@@ -24,12 +24,12 @@ public class ConversationParticipant {
     public ConversationParticipant() {
     }
 
-    public ConversationParticipant(String id, String conversationId, String userId, LocalDateTime createdAt) {
+    public ConversationParticipant(String id, String conversationId, String userId) {
         this.id = id;
         this.conversationId = conversationId;
         this.userId = userId;
-        this.createdAt = createdAt;
     }
+
 
     @PrePersist
     protected void onCreate() {

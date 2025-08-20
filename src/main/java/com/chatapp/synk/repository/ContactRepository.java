@@ -19,7 +19,11 @@ public interface ContactRepository extends JpaRepository<Contact, String> {
 
     List<Contact> findByEmailAndContactUserIdIsNull(String email);
 
-    @Query("SELECT new com.chatapp.synk.dto.ContactUserDTO(c.id, c.contactStatus, c.emailStatus, c.contactUserId, c.email," + "u.name, u.phoneNumber, u.email, u.profilePictureUrl, u.status) " + "FROM Contact c LEFT JOIN User u ON c.contactUserId = u.id " + "WHERE c.userId = :userId")
+    @Query("SELECT new com.chatapp.synk.dto.ContactUserDTO(c.id," +
+            " c.contactStatus," +" c.emailStatus," +" c.contactUserId," +
+            " c.email," + " u.name," + " u.phoneNumber," +
+            " u.email, u.profilePictureUrl, u.status) " +
+            "FROM Contact c LEFT JOIN User u ON c.contactUserId = u.id " + "WHERE c.userId = :userId")
     List<ContactUserDTO> findContactUserDetailsByUserId(@Param("userId") String userId);
 
     @Query("SELECT new com.chatapp.synk.dto.ContactUserDTO(" + "c.id, c.contactStatus, c.emailStatus, c.contactUserId, c.email, " + "u.name, u.phoneNumber, u.email, u.profilePictureUrl, u.status) " + "FROM Contact c JOIN User u ON c.contactUserId = u.id")

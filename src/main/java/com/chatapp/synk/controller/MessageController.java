@@ -3,6 +3,7 @@ package com.chatapp.synk.controller;
 import com.chatapp.synk.dto.MessageDTO;
 import com.chatapp.synk.response.SuccessResponse;
 import com.chatapp.synk.service.MessageService;
+import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,17 +29,17 @@ public class MessageController {
         return ResponseEntity.ok(new SuccessResponse<>("200", "Messages fetched successfully", messages));
     }
 
-    @GetMapping("/unread/{receiverId}")
-    public ResponseEntity<SuccessResponse<MessageDTO>> getUnreadMessages(@PathVariable String receiverId) {
+    @GetMapping("/unread/{conversationId}/{receiverId}")
+    public ResponseEntity<SuccessResponse<MessageDTO>> getUnreadMessages(@PathVariable("conversationId") String conversationId, @PathVariable("receiverId") String receiverId) {
         logger.info("Fetching unread messages for receiver: {}", receiverId);
-        List<MessageDTO> messages = messageService.getUnreadMessagesForReceiver(receiverId);
+        List<MessageDTO> messages = messageService.getUnreadMessagesForReceiver(conversationId, receiverId);
         return ResponseEntity.ok(new SuccessResponse<>("200", "Unread messages fetched", messages));
     }
 
-    @PostMapping("/send")
-    public ResponseEntity<SuccessResponse<MessageDTO>> sendMessage(@RequestBody MessageDTO messageDTO) {
+    @PostMapping("/create")
+    public ResponseEntity<SuccessResponse<MessageDTO>> sendMessage(@Valid @RequestBody MessageDTO messageDTO) {
         logger.info("Sending new message");
-        MessageDTO saved = messageService.sendMessage(messageDTO);
+        MessageDTO saved = messageService.createMessage(messageDTO);
         return ResponseEntity.ok(new SuccessResponse<>("200", "Message sent successfully", List.of(saved)));
     }
 

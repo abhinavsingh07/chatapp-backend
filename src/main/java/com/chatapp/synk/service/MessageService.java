@@ -6,7 +6,10 @@ import java.util.List;
 
 public interface MessageService {
     List<MessageDTO> getMessagesByConversationId(String conversationId);
-    List<MessageDTO> getUnreadMessagesForReceiver(String receiverId);
-    MessageDTO sendMessage(MessageDTO messageDTO);
+
+    List<MessageDTO> getUnreadMessagesForReceiver(String conversationId, String receiverId);
+
+    MessageDTO createMessage(MessageDTO messageDTO);
+
     void markMessageAsRead(String messageId);
 }

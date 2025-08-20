@@ -39,10 +39,10 @@ public class ConversationParticipantServiceImpl implements ConversationParticipa
     @Cacheable(value = "participantCache", key = "#id", unless = "#result == null")
     public ConversationParticipantDTO getParticipantById(String id) {
         logger.info("Fetching participant by ID: {}", id);
-        Optional<ConversationParticipantDTO> result = repository.findById(id).map(Mapper::mapToParticipantDTO);
+        Optional<ConversationParticipantDTO> result = repository.findById(id.trim()).map(Mapper::mapToParticipantDTO);
 
         if (result.isEmpty()) {
-            logger.warn("No conversation participant found with ID: {}", id);
+            logger.warn("No conversation participant found with ID: {}", id.trim());
             return null;
         }
         return result.get();
@@ -51,8 +51,8 @@ public class ConversationParticipantServiceImpl implements ConversationParticipa
     @Override
     @Cacheable(value = "participantCache", key = "#conversationId", unless = "#result == null or #result.isEmpty()")
     public List<ConversationParticipantDTO> getParticipantsByConversationId(String conversationId) {
-        logger.info("Fetching participants for conversation ID: {}", conversationId);
-        List<ConversationParticipant> list = repository.findByConversationId(conversationId);
+        logger.info("Fetching participants for conversation ID: {}", conversationId.trim());
+        List<ConversationParticipant> list = repository.findByConversationId(conversationId.trim());
         return list.stream().map(Mapper::mapToParticipantDTO).collect(Collectors.toList());
     }
 
@@ -60,7 +60,7 @@ public class ConversationParticipantServiceImpl implements ConversationParticipa
     @CacheEvict(value = "participantCache", key = "#id")
     public void deleteByConversationid(String id) {
         logger.info("Removing all conversation participants with conversation ID: {}", id);
-        List<ConversationParticipant> list = repository.findByConversationId(id);
+        List<ConversationParticipant> list = repository.findByConversationId(id.trim());
         for(ConversationParticipant cp:list) {
             repository.deleteById(cp.getId());
         }

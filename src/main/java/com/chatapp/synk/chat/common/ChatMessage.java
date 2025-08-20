@@ -1,29 +1,19 @@
 package com.chatapp.synk.chat.common;
 
 public class ChatMessage {
-    private String messageId;
+    private String conversationId;
     private String fromUserId;
     private String toUserId;
     private String body;
-    private long timestamp;
 
     public ChatMessage() {
     }
 
-    public ChatMessage(String messageId, String fromUserId, String toUserId, String body, long timestamp) {
-        this.messageId = messageId;
+    public ChatMessage(String conversationId, String fromUserId, String toUserId, String body) {
+        this.conversationId = conversationId;
         this.fromUserId = fromUserId;
         this.toUserId = toUserId;
         this.body = body;
-        this.timestamp = timestamp;
-    }
-
-    public String getMessageId() {
-        return messageId;
-    }
-
-    public void setMessageId(String messageId) {
-        this.messageId = messageId;
     }
 
     public String getFromUserId() {
@@ -50,11 +40,11 @@ public class ChatMessage {
         this.body = body;
     }
 
-    public long getTimestamp() {
-        return timestamp;
+    public String getConversationId() {
+        return conversationId;
     }
 
-    public void setTimestamp(long timestamp) {
-        this.timestamp = timestamp;
+    public void setConversationId(String conversationId) {
+        this.conversationId = conversationId;
     }
 }

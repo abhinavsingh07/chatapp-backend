@@ -30,7 +30,8 @@ public class Message {
     @Column(name = "media_id", length = 50)
     private String mediaId;
 
-    @Column(name = "is_read")
+    @Column(name = "message_status")
+    @Enumerated(EnumType.STRING)
     private MessageStatus messageStatus = MessageStatus.SENT;
 
     @Column(name = "sent_at", nullable = false, updatable = false)

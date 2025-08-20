@@ -47,9 +47,9 @@ public class RabbitMQConfig {
 
     @Bean
     public Binding serverBinding(Queue serverQueue, DirectExchange chatExchange) {
-        String routingKey = ChatUtil.buildRoutingKey(serverId);
-        logger.info("Creating Binding for queue={} to exchange={} with routingKey={}",
-                serverQueue.getName(), chatExchange.getName(), routingKey);
-        return BindingBuilder.bind(serverQueue).to(chatExchange).with(routingKey);
+        String bindingKey = ChatUtil.buildBindingKey(serverId);
+        logger.info("Creating Binding for queue={} to exchange={} with bindingkey={}",
+                serverQueue.getName(), chatExchange.getName(), bindingKey);
+        return BindingBuilder.bind(serverQueue).to(chatExchange).with(bindingKey);
     }
 }

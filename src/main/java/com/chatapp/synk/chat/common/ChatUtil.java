@@ -10,17 +10,25 @@ public final class ChatUtil {
     // Constants
     // =======================
 
-    /** Direct exchange for chat messages */
+    /**
+     * Direct exchange for chat messages
+     */
     public static final String EXCHANGE_NAME = "chat.direct.exchange";
 
-    /** Redis user key prefix: user:{userId} */
+    /**
+     * Redis user key prefix: user:{userId}
+     */
     public static final String USER_KEY_PREFIX = "user:";
 
-    /** Queue name prefix: server-queue.{serverId} */
+    /**
+     * Queue name prefix: server-queue.{serverId}
+     */
     private static final String SERVER_QUEUE_PREFIX = "server-queue.";
 
-    /** Routing key prefix: server.{serverId} */
-    private static final String SERVER_ROUTING_KEY_PREFIX = "server.";
+    /**
+     * Routing key prefix: server.{serverId}
+     */
+    private static final String SERVER_QUEUE_BINDING_KEY_PREFIX = "server.";
 
     // =======================
     // Redis Helpers
@@ -34,12 +42,15 @@ public final class ChatUtil {
     // RabbitMQ Helpers
     // =======================
 
-    public static String buildRoutingKey(String serverId) {
-        return SERVER_ROUTING_KEY_PREFIX + serverId;
+    public static String buildBindingKey(String serverId) {
+        return SERVER_QUEUE_BINDING_KEY_PREFIX + serverId + ".binding-key";
     }
 
+    // =======================
+    // RabbitMQ Helpers
+    // =======================
 
     public static String buildQueueName(String serverId) {
-        return SERVER_QUEUE_PREFIX + serverId;
+        return SERVER_QUEUE_PREFIX + serverId + ".queue";
     }
 }

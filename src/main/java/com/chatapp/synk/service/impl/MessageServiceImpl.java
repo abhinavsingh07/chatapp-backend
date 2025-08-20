@@ -27,20 +27,19 @@ public class MessageServiceImpl implements MessageService {
     @Override
     public List<MessageDTO> getMessagesByConversationId(String conversationId) {
         logger.info("Fetching messages for conversation: {}", conversationId);
-        return messageRepository.findByConversationIdOrderBySentAtAsc(conversationId)
+        return messageRepository.findByConversationIdOrderBySentAtAsc(conversationId.trim())
                 .stream().map(Mapper::mapToMessageDTO).collect(Collectors.toList());
     }
 
     @Override
-    public List<MessageDTO> getUnreadMessagesForReceiver(String receiverId) {
+    public List<MessageDTO> getUnreadMessagesForReceiver(String conversationId, String receiverId) {
         logger.info("Fetching unread messages for receiver: {}", receiverId);
-        return messageRepository.findByReceiverIdAndIsReadFalse(receiverId)
+        return messageRepository.findByConversationIdAndReceiverId(conversationId.trim(),receiverId.trim())
                 .stream().map(Mapper::mapToMessageDTO).collect(Collectors.toList());
     }
 
     @Override
-    @Transactional
-    public MessageDTO sendMessage(MessageDTO messageDTO) {
+    public MessageDTO createMessage(MessageDTO messageDTO) {
         logger.info("Sending message from {} to {}", messageDTO.getSenderId(), messageDTO.getReceiverId());
         Message message = Mapper.mapToMessageEntity(messageDTO);
         Message saved = messageRepository.save(message);
@@ -51,7 +50,7 @@ public class MessageServiceImpl implements MessageService {
     @Transactional
     public void markMessageAsRead(String messageId) {
         logger.info("Marking message as read. ID: {}", messageId);
-        Message message = messageRepository.findById(messageId)
+        Message message = messageRepository.findById(messageId.trim())
                 .orElseThrow(() -> new ServiceException("Message not found", HttpStatus.NOT_FOUND));
         //message.setIsRead(true);
         messageRepository.save(message);

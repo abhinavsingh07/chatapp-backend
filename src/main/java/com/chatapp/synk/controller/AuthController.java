@@ -44,7 +44,7 @@ public class AuthController {
     private UserService userService;
 
     @PostMapping("/authenticate")
-    public ResponseEntity<JwtResponse> authenticate(@RequestBody AuthDTO authDTO) throws ServiceException {
+    public ResponseEntity<JwtResponse> authenticate(@Valid @RequestBody AuthDTO authDTO) throws ServiceException {
         logger.info("Authenticating user with phone number: {}", authDTO.getPhoneNumberOrEmail());
         //authenticate user using phone number or email and password
         Authentication auth = authenticate(authDTO.getPhoneNumberOrEmail(), authDTO.getPassword());

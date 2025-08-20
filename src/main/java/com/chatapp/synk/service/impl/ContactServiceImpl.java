@@ -17,8 +17,10 @@ import com.chatapp.synk.util.Mapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
 import org.springframework.http.HttpStatus;
@@ -52,7 +54,7 @@ public class ContactServiceImpl implements ContactService {
     @Cacheable(value = "contactListCache", key = "#userId", unless = "#result == null || #result.isEmpty()")
     public List<ContactDTO> getContactsByUserId(String userId) {
         logger.info("Fetching contacts for userId: {}", userId);
-        List<Contact> contactList = contactRepository.findAllByUserId(userId);
+        List<Contact> contactList = contactRepository.findAllByUserId(userId.trim());
         logger.info("Returning {} Contact for userId {}", contactList.size(), userId);
         return contactList.stream().filter(Objects::nonNull).map(Mapper::mapToContactDTO).collect(Collectors.toList());
 
@@ -63,7 +65,7 @@ public class ContactServiceImpl implements ContactService {
     public List<ContactUserDTO> getContacts(String userId) {
         if (userId != null && !userId.isEmpty()) {
             logger.info("Fetching contacts for userId: {}", userId);
-            return contactRepository.findContactUserDetailsByUserId(userId);
+            return contactRepository.findContactUserDetailsByUserId(userId.trim());
         } else {
             logger.info("Fetching all contacts with user mapping");
             return contactRepository.findAllContactsWithUserDetails();
@@ -75,7 +77,7 @@ public class ContactServiceImpl implements ContactService {
     public void deleteContact(String contactId) {
         logger.info("Attempting to delete contact with ID: {}", contactId);
 
-        Optional<Contact> contactOpt = contactRepository.findById(contactId);
+        Optional<Contact> contactOpt = contactRepository.findById(contactId.trim());
         if (contactOpt.isEmpty()) {
             logger.warn("No contact found with ID: {}", contactId);
             throw new ServiceException("Contact not found for given contact id", HttpStatus.NOT_FOUND);
@@ -86,12 +88,19 @@ public class ContactServiceImpl implements ContactService {
         contactRepository.delete(contact);
 
         // manual eviction using local variable
-        cacheManager.getCache("contactListCache").evict(userId);
+        Cache cache = cacheManager.getCache("contactListCache");
+        if (cache != null) {
+            cache.evict(userId);           // Evict user-specific contacts
+            cache.evict("ALL_CONTACTS");   // Evict the global list
+        }
         logger.info("Contact with ID {} deleted successfully", contactId);
     }
 
     @Override
-    //@CachePut(value = "contactCache", key = "#result.id", unless = "#result == null")
+    @Caching(evict = {
+            @CacheEvict(value = "contactListCache", key = "#contactDTO.userId"),
+            @CacheEvict(value = "contactListCache", key = "'ALL_CONTACTS'")},
+            put = {@CachePut(value = "contactCache", key = "#result.id", unless = "#result == null")})
     public ContactDTO addContact(ContactDTO dto) {
         String userId = dto.getUserId();
         String email = dto.getEmail();

@@ -7,9 +7,11 @@ import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -29,7 +31,7 @@ public class ConversationController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<SuccessResponse<ConversationDTO>> getById(@PathVariable String id) {
+    public ResponseEntity<SuccessResponse<ConversationDTO>> getById(@PathVariable(required = true) String id) {
         logger.info("Fetching conversation with ID: {}", id);
         ConversationDTO convo = conversationService.getConversationById(id);
 
@@ -41,7 +43,7 @@ public class ConversationController {
         }
     }
 
-    @GetMapping
+    @GetMapping("/all")
     public ResponseEntity<SuccessResponse<ConversationDTO>> getAllConversations() {
         logger.info("Fetching all conversations");
         List<ConversationDTO> conversations = conversationService.findAll();
@@ -58,4 +60,19 @@ public class ConversationController {
         return ResponseEntity.ok(new SuccessResponse<>(code, msg, conversations));
     }
 
+    @PostMapping("/get-or-create/{fromUserId}/{toUserId}")
+    public ResponseEntity<SuccessResponse<String>> getOrCreateConversation(@PathVariable(required = true) String fromUserId, @PathVariable(required = true) String toUserId) {
+
+        logger.info("Request to get or create conversation between {} and {}", fromUserId, toUserId);
+
+        String conversationId = conversationService.getOrCreateConversation(fromUserId, toUserId);
+
+        if (conversationId == null) {
+            logger.warn("No conversation could be created between {} and {}", fromUserId, toUserId);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new SuccessResponse<>("500", "Failed to create or fetch conversation", null));
+        }
+
+        logger.info("Conversation {} found/created successfully between {} and {}", conversationId, fromUserId, toUserId);
+        return ResponseEntity.ok(new SuccessResponse<>("200", "Conversation found/created successfully", Arrays.asList(conversationId)));
+    }
 }

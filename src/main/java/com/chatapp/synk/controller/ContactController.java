@@ -25,7 +25,7 @@ public class ContactController {
     @GetMapping("/search")
     public ResponseEntity<SuccessResponse<ContactUserDTO>> getContacts(@RequestParam(required = false) String userId) {
         logger.info("Fetching contacts for userId: {}", userId);
-
+        //search contact we can pass userid as query param otherwise fetch all contacts.
         List<ContactUserDTO> contactUserDTOList = contactService.getContacts(userId);
 
         if (contactUserDTOList.isEmpty()) {
@@ -46,7 +46,7 @@ public class ContactController {
     }
 
     @DeleteMapping("/{contactId}")
-    public ResponseEntity<SuccessResponse<String>> deleteContact(@PathVariable String contactId) {
+    public ResponseEntity<SuccessResponse<String>> deleteContact(@PathVariable(required = true) String contactId) {
         logger.info("Deleting contact with userId: {}", contactId);
         contactService.deleteContact(contactId);
         return ResponseEntity.ok(new SuccessResponse<>("200", "Contact deleted successfully", List.of()));

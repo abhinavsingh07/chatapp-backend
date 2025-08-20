@@ -19,6 +19,10 @@ public class MessageDTO {
     private MessageStatus messageStatus;
     private LocalDateTime sentAt;
 
+    public MessageDTO() {
+
+    }
+
     // Getters & Setters
     public String getId() {
         return id;

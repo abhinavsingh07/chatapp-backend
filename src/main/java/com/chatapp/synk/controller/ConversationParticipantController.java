@@ -29,7 +29,7 @@ public class ConversationParticipantController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<SuccessResponse<ConversationParticipantDTO>> getById(@PathVariable String id) {
+    public ResponseEntity<SuccessResponse<ConversationParticipantDTO>> getById(@PathVariable(required = true) String id) {
         logger.info("Fetching participant with ID: {}", id);
         ConversationParticipantDTO participant = participantService.getParticipantById(id);
 
@@ -41,7 +41,7 @@ public class ConversationParticipantController {
     }
 
     @GetMapping("/conversation/{conversationId}")
-    public ResponseEntity<SuccessResponse<ConversationParticipantDTO>> getByConversation(@PathVariable String conversationId) {
+    public ResponseEntity<SuccessResponse<ConversationParticipantDTO>> getByConversation(@PathVariable(required = true) String conversationId) {
         logger.info("Fetching all participants for conversation ID: {}", conversationId);
         List<ConversationParticipantDTO> participants = participantService.getParticipantsByConversationId(conversationId);
 
@@ -51,7 +51,7 @@ public class ConversationParticipantController {
     }
 
     @DeleteMapping("/conversation/{id}")
-    public ResponseEntity<SuccessResponse<Void>> delete(@PathVariable String id) {
+    public ResponseEntity<SuccessResponse<Void>> delete(@PathVariable(required = true) String id) {
         logger.info("Deleting participant with ID: {}", id);
         participantService.deleteByConversationid(id);
         return ResponseEntity.ok(new SuccessResponse<>("200", "Participant removed", Collections.emptyList()));

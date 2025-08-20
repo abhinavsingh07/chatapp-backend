@@ -24,6 +24,15 @@ public class Conversation {
         this.createdAt = LocalDateTime.now();
     }
 
+    public Conversation(String id, String conversationType) {
+        this.id = id;
+        this.conversationType = conversationType;
+    }
+
+    public Conversation() {
+        // Default constructor
+    }
+
     public String getId() {
         return id;
     }
