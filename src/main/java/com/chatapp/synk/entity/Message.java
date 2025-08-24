@@ -3,7 +3,7 @@ package com.chatapp.synk.entity;
 import com.chatapp.synk.enums.MessageStatus;
 import jakarta.persistence.*;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Entity
 @Table(name = "messages", schema = "chatapp")
@@ -35,12 +35,12 @@ public class Message {
     private MessageStatus messageStatus = MessageStatus.SENT;
 
     @Column(name = "sent_at", nullable = false, updatable = false)
-    private LocalDateTime sentAt;
+    private Instant sentAt;//Instant is UTC time without timezone client converts this time on their browser or mobile sdk and get its time according to it timezone
 
-    // Lifecycle hooks
     @PrePersist
     protected void onCreate() {
-        sentAt = LocalDateTime.now();
+        sentAt = Instant.now(); // Always UTC
+        System.out.println("Message Entity pre persist*****"+sentAt);
     }
 
     // Getters & Setters
@@ -100,11 +100,11 @@ public class Message {
         this.messageStatus = messageStatus;
     }
 
-    public LocalDateTime getSentAt() {
+    public Instant getSentAt() {
         return sentAt;
     }
 
-    public void setSentAt(LocalDateTime sentAt) {
+    public void setSentAt(Instant sentAt) {
         this.sentAt = sentAt;
     }
 }

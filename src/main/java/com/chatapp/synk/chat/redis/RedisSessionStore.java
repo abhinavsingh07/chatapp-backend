@@ -27,7 +27,7 @@ public class RedisSessionStore {
         map.put("serverId", serverId);
         map.put("sessionId", wsSessionId);
 
-        redisTemplate.opsForHash().putAll(redisLookupKey, map);
+        redisTemplate.opsForHash().putAll(redisLookupKey, map);//"user:{userId}" → { serverId: "abc123", sessionId: "xyz789" }
         logger.info("Saved session for userId={} with serverId={} and sessionId={}", userId, serverId, wsSessionId);
     }
 

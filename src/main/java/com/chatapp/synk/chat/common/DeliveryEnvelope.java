@@ -47,4 +47,14 @@ public class DeliveryEnvelope {
     public void setTargetSessionId(String targetSessionId) {
         this.targetSessionId = targetSessionId;
     }
+
+    @Override
+    public String toString() {
+        return "DeliveryEnvelope{" +
+                "message=" + message +
+                ", targetUserId='" + targetUserId + '\'' +
+                ", targetServerId='" + targetServerId + '\'' +
+                ", targetSessionId='" + targetSessionId + '\'' +
+                '}';
+    }
 }

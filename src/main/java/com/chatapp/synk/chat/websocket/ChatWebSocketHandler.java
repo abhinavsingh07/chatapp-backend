@@ -4,6 +4,8 @@ import com.chatapp.synk.chat.common.ChatMessage;
 import com.chatapp.synk.chat.common.Json;
 import com.chatapp.synk.chat.rabbitmq.ChatMessagePublisher;
 import com.chatapp.synk.chat.redis.RedisSessionStore;
+import com.chatapp.synk.enums.ChatWebSocketStatus;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -13,6 +15,7 @@ import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
 import java.io.IOException;
+import java.time.Instant;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 
@@ -20,15 +23,11 @@ import java.util.concurrent.ExecutorService;
 public class ChatWebSocketHandler extends TextWebSocketHandler {
 
     private static final Logger logger = LoggerFactory.getLogger(ChatWebSocketHandler.class);
-
-    private final LocalWsSessionRegistry localWsSessionRegistry;//local session registery.
-    private final RedisSessionStore redisSessionStore;//redis session store.
+    private final LocalWsSessionRegistry localWsSessionRegistry;
+    private final RedisSessionStore redisSessionStore;
     private final ChatMessagePublisher chatMessagePublisher;
-
-
     private final ExecutorService taskExecutor;
 
-    // Constructor injection
     public ChatWebSocketHandler(LocalWsSessionRegistry localWsSessionRegistry, RedisSessionStore redisSessionStore, ChatMessagePublisher chatMessagePublisher, ExecutorService taskExecutor) {
         this.localWsSessionRegistry = localWsSessionRegistry;
         this.redisSessionStore = redisSessionStore;
@@ -38,79 +37,92 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
 
     @Override
     public void afterConnectionEstablished(WebSocketSession wsSession) throws Exception {
-        String userId = (String) wsSession.getAttributes().get("userId");//contains the same map you populated in beforeHandshake().
+        String userId = (String) wsSession.getAttributes().get("userId");
         String serverId = System.getProperty("server.id");
+        String sessionId = wsSession.getId();
 
         if (userId == null) {
-            logger.warn("Connection rejected: no userId attribute found for sessionId={}", wsSession.getId());
+            logger.warn("WS_CONNECT_REJECTED | sessionId={} reason=Missing userId", sessionId);
             wsSession.close(CloseStatus.BAD_DATA);
             return;
         }
 
-        localWsSessionRegistry.add(wsSession.getId(), userId, wsSession);//this for local lookup
-        redisSessionStore.saveUserSession(userId, serverId, wsSession.getId());//stores serverId and sessionId in redis for a given userid.
+        localWsSessionRegistry.add(sessionId, userId, wsSession);
+        redisSessionStore.saveUserSession(userId, serverId, sessionId);
 
-        logger.debug("WebSocket connection established for userId={} on serverId={}", userId, serverId);
-        wsSession.sendMessage(new TextMessage("{\"type\":\"connected\",\"userId\":\"" + userId + "\"  ,\"serverId\":\"" + serverId + "\"}"));
+        logger.info("WS_CONNECTED | userId={} sessionId={} serverId={}", userId, sessionId, serverId);
+
+        wsSession.sendMessage(new TextMessage(String.format("{\"type\":\"connected\",\"userId\":\"%s\",\"serverId\":\"%s\"}", userId, serverId)));
     }
 
     @Override
     public void handleTextMessage(WebSocketSession wsSession, TextMessage message) throws Exception {
         String userId = (String) wsSession.getAttributes().get("userId");
+        String sessionId = wsSession.getId();
         String payload = message.getPayload();
 
-        logger.debug("Received message from sessionId={} userId={} -> payload={}", wsSession.getId(), userId, payload);
+        createInfoLog("WS_MESSAGE_RECEIVED | userId={} sessionId={} payload={}", userId, sessionId, payload);
 
         try {
             CompletableFuture.runAsync(() -> {
                 try {
                     ChatMessage chatMessage = Json.mapper().readValue(payload, ChatMessage.class);
                     chatMessage.setFromUserId(userId);
-                    chatMessagePublisher.sendToUser(chatMessage);//call ChatMessagePublisher from there publishing happens to rabbitmq
-                    logger.debug("Chat message published to RabbitMQ for userId={}", userId);
+                    chatMessage.setSentAt(Instant.now().toString());
+
+                    chatMessagePublisher.sendToUser(chatMessage);
+
+                    createInfoLog("WS_MESSAGE_PUBLISHED | userId={} sessionId={} toUserId={}", userId, sessionId, chatMessage.getToUserId(), payload);
                 } catch (Exception ex) {
-                    logger.error("Failed to process incoming WS payload userId={} payload={}", userId, payload, ex);
+                    logger.error("WS_MESSAGE_PROCESSING_FAILED | userId={} sessionId={} payload={}", userId, sessionId, payload, ex);
                     try {
-                        //nforming client something not working
                         wsSession.sendMessage(new TextMessage("{\"error\":\"Invalid message format or server error\"}"));
                     } catch (IOException ioEx) {
-                        logger.error("Failed to send error back to client", ioEx);
+                        logger.error("WS_ERROR_RESPONSE_FAILED | userId={} sessionId={}", userId, sessionId, ioEx);
                     }
                 }
             }, taskExecutor).exceptionally(ex -> {
-                logger.error("Unhandled async exception for userId={} payload={}", userId, payload, ex);
+                logger.error("WS_ASYNC_TASK_FAILED | userId={} sessionId={} payload={}", userId, sessionId, payload, ex);
                 return null;
             });
 
         } catch (Exception e) {
-            logger.error("Failed to submit async task for userId={} payload={}", userId, payload, e);
+            logger.error("WS_TASK_SUBMISSION_FAILED | userId={} sessionId={} payload={}", userId, sessionId, payload, e);
             wsSession.sendMessage(new TextMessage("{\"error\":\"Server error, please retry\"}"));
         }
     }
 
-
     @Override
-    //when client calls socket.close()
     public void afterConnectionClosed(WebSocketSession wsSession, CloseStatus status) throws Exception {
         String userId = (String) wsSession.getAttributes().get("userId");
+        String sessionId = wsSession.getId();
 
         if (userId != null) {
-            // Cleanup local and distributed registries
             localWsSessionRegistry.remove(userId);
             redisSessionStore.deleteUserSession(userId);
-            logger.info("WebSocket connection closed for userId={} sessionId={} with status={}", userId, wsSession.getId(), status);
+            logger.info("WS_DISCONNECTED | userId={} sessionId={} status={}", userId, sessionId, status);
         } else {
-            // Defensive: session had no userId
-            logger.warn("WebSocket connection closed for unknown user, sessionId={} with status={}", wsSession.getId(), status);
+            logger.warn("WS_DISCONNECTED_UNKNOWN | sessionId={} status={}", sessionId, status);
         }
 
         try {
-            // Ensure session is closed at the transport level
             if (wsSession.isOpen()) {
                 wsSession.close(status);
             }
         } catch (Exception e) {
-            logger.error("Error during cleanup of sessionId={} userId={}", wsSession.getId(), userId, e);
+            logger.error("WS_CLEANUP_FAILED | userId={} sessionId={}", userId, sessionId, e);
+        }
+    }
+
+    private void createInfoLog(String template, Object... args) {
+        try {
+            String payload= args[args.length - 1].toString();
+            ChatMessage chatMessage = Json.mapper().readValue(payload, ChatMessage.class);
+            if (chatMessage.getWsStatus().equals(ChatWebSocketStatus.CHAT)) {
+                logger.info(template, args);
+            }
+        } catch (JsonProcessingException e) {
+            logger.warn("WS_LOGGING_FAILED | reason=Invalid payload while logging", e);
         }
     }
 }

@@ -5,6 +5,7 @@ import com.chatapp.synk.chat.common.Json;
 import com.chatapp.synk.chat.redis.RedisSessionStore;
 import com.chatapp.synk.chat.websocket.LocalWsSessionRegistry;
 import com.chatapp.synk.dto.MessageDTO;
+import com.chatapp.synk.enums.ChatWebSocketStatus;
 import com.chatapp.synk.enums.MessageStatus;
 import com.chatapp.synk.service.MessageService;
 import com.rabbitmq.client.Channel;
@@ -23,7 +24,8 @@ import java.io.IOException;
 public class ChatMessageListener {
 
     private static final Logger logger = LoggerFactory.getLogger(ChatMessageListener.class);
-    private final MessageService messageService; // MessageService for additional message handling
+
+    private final MessageService messageService;
     private final LocalWsSessionRegistry localWsSessionRegistry;
     private final RedisSessionStore redisSessionStore;
 
@@ -35,51 +37,56 @@ public class ChatMessageListener {
 
     @RabbitListener(queues = "#{serverQueue.name}")
     public void onMessage(String payload, Channel channel, @Header(AmqpHeaders.DELIVERY_TAG) long tag) {
-        logger.debug("Received message payload: {}", payload);
+        logger.debug("[RabbitMQ] Received raw payload: {}", payload);
 
         try {
             DeliveryEnvelope env = Json.mapper().readValue(payload, DeliveryEnvelope.class);
+            logger.info("[RabbitMQ] Converted payload into DeliveryEnvelope for conversationId={} targetUserId={}", env.getMessage().getConversationId(), env.getTargetUserId());
 
-            // Persist the message first
-            MessageDTO messageDTO = new MessageDTO();
-            messageDTO.setSenderId(env.getMessage().getFromUserId());
-            messageDTO.setReceiverId(env.getMessage().getToUserId());
-            messageDTO.setContent(env.getMessage().getBody());
-            messageDTO.setConversationId(env.getMessage().getConversationId());
-            messageDTO.setMessageStatus(MessageStatus.SENT);
-            //save to db
-            messageService.saveMessage(messageDTO);
-            logger.debug("Message saved to DB for conversationId={}", env.getMessage().getConversationId());
+            // Persist message if it’s a chat message
+            if (env.getMessage().getWsStatus().equals(ChatWebSocketStatus.CHAT)) {
+                MessageDTO messageDTO = new MessageDTO();
+                messageDTO.setSenderId(env.getMessage().getFromUserId());
+                messageDTO.setReceiverId(env.getMessage().getToUserId());
+                messageDTO.setContent(env.getMessage().getBody());
+                messageDTO.setConversationId(env.getMessage().getConversationId());
+                messageDTO.setMessageStatus(MessageStatus.SENT);
 
-            // Try delivering to active session
+                messageService.saveMessage(messageDTO);
+                logger.info("[DB] Persisted message for conversationId={} senderId={} receiverId={}", env.getMessage().getConversationId(), env.getMessage().getFromUserId(), env.getMessage().getToUserId());
+            }
+
+            // Try delivery
             if (!trySend(env.getTargetSessionId(), env)) {
+                logger.debug("[WS] SessionId={} not active, checking Redis for fresh session...", env.getTargetSessionId());
+
                 String freshSessionId = redisSessionStore.getUserSessionId(env.getTargetUserId());
                 if (!trySend(freshSessionId, env)) {
-                    logger.warn("No active WebSocket session found for userId={}", env.getTargetUserId());
+                    logger.warn("[WS] No active WebSocket session found for userId={}", env.getTargetUserId());
                 }
             }
 
-            // Acknowledge after success
-            channel.basicAck(tag, false);//basicAck = "DB save + delivery done → remove message."
+            // Ack only if DB save + delivery attempt done
+            channel.basicAck(tag, false);
+            logger.debug("[RabbitMQ] Message acked (conversationId={} userId={})", env.getMessage().getConversationId(), env.getTargetUserId());
 
         } catch (Exception e) {
-            logger.error("Failed to process incoming RabbitMQ message payload: {}", payload, e);
+            logger.error("[RabbitMQ] Failed to process payload: {}", payload, e);
             try {
-                //Don’t ack, requeue message
-                channel.basicNack(tag, false, true);//basicNack(..., true) = "Something failed → put message back into queue for retry."
+                channel.basicNack(tag, false, true);
+                logger.warn("[RabbitMQ] Message nacked and requeued (payloadHash={})", payload.hashCode());
             } catch (IOException ioEx) {
-                logger.error("Failed to nack message", ioEx);
+                logger.error("[RabbitMQ] Failed to nack message (payloadHash={})", payload.hashCode(), ioEx);
             }
         }
     }
 
     /**
-     * Attempts to send a message to a sessionId (if valid and open).
-     *
-     * @return true if sent successfully, false otherwise
+     * Attempts to send a message to a WebSocket session.
      */
     private boolean trySend(String sessionId, DeliveryEnvelope env) {
         if (sessionId == null) {
+            logger.debug("[WS] No sessionId provided for userId={}", env.getTargetUserId());
             return false;
         }
 
@@ -87,15 +94,14 @@ public class ChatMessageListener {
         if (wsSession != null && wsSession.isOpen()) {
             try {
                 wsSession.sendMessage(new TextMessage(Json.mapper().writeValueAsString(env.getMessage())));
-                logger.info("Delivered message to userId={} via sessionId={}", env.getTargetUserId(), sessionId);
+                logger.info("[WS] Message delivered to userId={} sessionId={}", env.getTargetUserId(), sessionId);
                 return true;
             } catch (Exception e) {
-                logger.error("Failed to send message to userId={} via sessionId={}", env.getTargetUserId(), sessionId, e);
+                logger.error("[WS] Failed to send message to userId={} sessionId={}", env.getTargetUserId(), sessionId, e);
             }
         } else {
-            logger.debug("SessionId={} not found or closed for userId={}", sessionId, env.getTargetUserId());
+            logger.debug("[WS] SessionId={} not found or closed for userId={}", sessionId, env.getTargetUserId());
         }
         return false;
     }
-
 }

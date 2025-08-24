@@ -28,7 +28,7 @@ public final class ChatUtil {
     /**
      * Routing key prefix: server.{serverId}
      */
-    private static final String SERVER_QUEUE_BINDING_KEY_PREFIX = "server.";
+    private static final String SERVER_QUEUE_BINDING_KEY_PREFIX = "server.binding.key.";
 
     // =======================
     // Redis Helpers
@@ -43,7 +43,7 @@ public final class ChatUtil {
     // =======================
 
     public static String buildBindingKey(String serverId) {
-        return SERVER_QUEUE_BINDING_KEY_PREFIX + serverId + ".binding-key";
+        return SERVER_QUEUE_BINDING_KEY_PREFIX + serverId;
     }
 
     // =======================
@@ -51,6 +51,6 @@ public final class ChatUtil {
     // =======================
 
     public static String buildQueueName(String serverId) {
-        return SERVER_QUEUE_PREFIX + serverId + ".queue";
+        return SERVER_QUEUE_PREFIX + serverId;
     }
 }

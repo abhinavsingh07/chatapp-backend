@@ -90,7 +90,7 @@ public class Mapper {
         dto.setContent(message.getContent());
         dto.setMediaId(message.getMediaId());
         dto.setMessageStatus(message.getMessageStatus());
-        dto.setSentAt(message.getSentAt());
+        dto.setSentAt(message.getSentAt().toString());
         return dto;
     }
 

@@ -3,8 +3,6 @@ package com.chatapp.synk.dto;
 import com.chatapp.synk.enums.MessageStatus;
 import jakarta.validation.constraints.NotBlank;
 
-import java.time.LocalDateTime;
-
 public class MessageDTO {
 
     private String id;
@@ -17,7 +15,7 @@ public class MessageDTO {
     private String content;
     private String mediaId;
     private MessageStatus messageStatus;
-    private LocalDateTime sentAt;
+    private String sentAt;
 
     public MessageDTO() {
 
@@ -80,11 +78,11 @@ public class MessageDTO {
         this.messageStatus = messageStatus;
     }
 
-    public LocalDateTime getSentAt() {
+    public String getSentAt() {
         return sentAt;
     }
 
-    public void setSentAt(LocalDateTime sentAt) {
+    public void setSentAt(String sentAt) {
         this.sentAt = sentAt;
     }
 }

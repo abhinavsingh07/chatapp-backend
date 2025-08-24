@@ -197,7 +197,7 @@ public class InputValidationAndSanitizationService {
         sanitized.setReceiverId(UserInputSanitizer.sanitizeId(dto.getReceiverId()));
         sanitized.setContent(UserInputSanitizer.sanitizeText(dto.getContent()));  // special for text
         sanitized.setMediaId(UserInputSanitizer.sanitizeId(dto.getMediaId()));
-
+        sanitized.setMessageStatus(dto.getMessageStatus());//this is our enum value no need to sanitize
         return sanitized;
     }
 
