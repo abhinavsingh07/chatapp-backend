@@ -1,7 +1,7 @@
 package com.chatapp.synk.service.impl;
 
-import com.chatapp.synk.chat.security_validator.InputSecurityUtils;
-import com.chatapp.synk.chat.security_validator.InputValidationAndSanitizationService;
+import com.chatapp.synk.security_validator.InputSecurityUtils;
+import com.chatapp.synk.security_validator.InputValidationAndSanitizationService;
 import com.chatapp.synk.dto.MessageDTO;
 import com.chatapp.synk.entity.Message;
 import com.chatapp.synk.exceptionHandler.ServiceException;
@@ -49,7 +49,7 @@ public class MessageServiceImpl implements MessageService {
     }
 
     @Override
-    public MessageDTO createMessage(MessageDTO messageDTO) {
+    public MessageDTO saveMessage(MessageDTO messageDTO) {
         MessageDTO validDTO = InputValidationAndSanitizationService.validateAndSanitize(messageDTO);
         logger.info("Saving message from {} to {}", validDTO.getSenderId(), validDTO.getReceiverId());
         Message message = Mapper.mapToMessageEntity(validDTO);

@@ -42,14 +42,14 @@ public class ChatMessagePublisher {
         }
 
         String targetSessionId = (String) redisTemplate.opsForHash().get(redisKey, "sessionId");
-        logger.info("Resolved serverId={} and sessionId={} for userId={}", serverId, targetSessionId, toUserId);
+        logger.debug("Resolved serverId={} and sessionId={} for userId={}", serverId, targetSessionId, toUserId);
 
         DeliveryEnvelope env = new DeliveryEnvelope(msg, toUserId, serverId, targetSessionId);
         try {
             String json = Json.mapper().writeValueAsString(env);
-            String routingKey=ChatUtil.buildBindingKey(serverId);//for direct routing key==binding key
+            String routingKey = ChatUtil.buildBindingKey(serverId);//for direct routing key==binding key
             rabbitTemplate.convertAndSend(ChatUtil.EXCHANGE_NAME, routingKey, json);//publish to queue
-            logger.info("Published message to exchange={} with routingKey=server.{} for userId={}", ChatUtil.EXCHANGE_NAME, serverId, toUserId);
+            logger.debug("Published message to exchange={} with routingKey=server.{} for userId={}", ChatUtil.EXCHANGE_NAME, serverId, toUserId);
         } catch (Exception e) {
             logger.error("Failed to publish message for userId={}", toUserId, e);
             throw new ServiceException(e.getMessage());

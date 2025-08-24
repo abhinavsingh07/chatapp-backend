@@ -1,4 +1,4 @@
-package com.chatapp.synk.chat.security_validator;
+package com.chatapp.synk.security_validator;
 
 import java.util.UUID;
 import java.util.regex.Pattern;

@@ -1,7 +1,7 @@
 package com.chatapp.synk.service.impl;
 
-import com.chatapp.synk.chat.security_validator.InputSecurityUtils;
-import com.chatapp.synk.chat.security_validator.InputValidationAndSanitizationService;
+import com.chatapp.synk.security_validator.InputSecurityUtils;
+import com.chatapp.synk.security_validator.InputValidationAndSanitizationService;
 import com.chatapp.synk.dto.ConversationDTO;
 import com.chatapp.synk.entity.Conversation;
 import com.chatapp.synk.entity.ConversationParticipant;
@@ -77,10 +77,10 @@ public class ConversationServiceImpl implements ConversationService {
         String loggedInUserValidId = InputSecurityUtils.secureId(loggedInUserId);
         String contactUserValidId = InputSecurityUtils.secureId(contactUserId);
         // Try to find existing conversation
-        String conversationId = conversationRepository.findConversationIdByUserIdAndContactUserId(loggedInUserValidId, loggedInUserValidId);
+        String conversationId = conversationRepository.findConversationIdByUserIdAndContactUserId(loggedInUserValidId, contactUserValidId);
 
         if (conversationId != null) {
-            logger.info("Existing conversation [{}] found between [{}] and [{}]", conversationId, loggedInUserValidId, loggedInUserValidId);
+            logger.info("Existing conversation [{}] found between [{}] and [{}]", conversationId, loggedInUserValidId, contactUserValidId);
             return conversationId; // Reuse existing
         }
 
@@ -88,10 +88,12 @@ public class ConversationServiceImpl implements ConversationService {
         String newConversationId = RandomUUIDGenerater.getId(Conversation.ALIAS_CONVERSATION).toString();
         Conversation conversation = new Conversation(newConversationId, ConversationType.ONE_TO_ONE.toString());
         conversationRepository.save(conversation);
-        logger.info("Created new conversation [{}] between [{}] and [{}]", newConversationId, loggedInUserId, contactUserId);
+        logger.info("Create request for new conversation [{}] between [{}] and [{}]", newConversationId, loggedInUserId, contactUserId);
 
         // Add both participants
-        List<ConversationParticipant> participants = List.of(new ConversationParticipant(RandomUUIDGenerater.getId(ConversationParticipant.ALIAS_PARTICIPANT).toString(), newConversationId, loggedInUserId.trim()), new ConversationParticipant(RandomUUIDGenerater.getId(ConversationParticipant.ALIAS_PARTICIPANT).toString(), newConversationId, contactUserId.trim()));
+        List<ConversationParticipant> participants = List.of(
+                new ConversationParticipant(RandomUUIDGenerater.getId(ConversationParticipant.ALIAS_PARTICIPANT).toString(), newConversationId, loggedInUserId),
+                new ConversationParticipant(RandomUUIDGenerater.getId(ConversationParticipant.ALIAS_PARTICIPANT).toString(), newConversationId, contactUserId));
 
         participantRepository.saveAll(participants);
         logger.info("Added participants [{}] and [{}] to conversation [{}]", loggedInUserId, contactUserId, newConversationId);

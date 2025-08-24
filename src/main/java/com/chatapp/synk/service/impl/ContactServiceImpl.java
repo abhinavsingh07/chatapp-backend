@@ -2,8 +2,8 @@ package com.chatapp.synk.service.impl;
 
 import com.api.emailservice.EmailDTO;
 import com.api.emailservice.EmailService;
-import com.chatapp.synk.chat.security_validator.InputSecurityUtils;
-import com.chatapp.synk.chat.security_validator.InputValidationAndSanitizationService;
+import com.chatapp.synk.security_validator.InputSecurityUtils;
+import com.chatapp.synk.security_validator.InputValidationAndSanitizationService;
 import com.chatapp.synk.dto.ContactDTO;
 import com.chatapp.synk.dto.ContactUserDTO;
 import com.chatapp.synk.dto.UserDTO;

@@ -1,8 +1,8 @@
 package com.chatapp.synk.service.impl;
 
-import com.chatapp.synk.chat.security_validator.InputSecurityUtils;
-import com.chatapp.synk.chat.security_validator.InputValidationAndSanitizationService;
-import com.chatapp.synk.chat.security_validator.UserInputValidator;
+import com.chatapp.synk.security_validator.InputSecurityUtils;
+import com.chatapp.synk.security_validator.InputValidationAndSanitizationService;
+import com.chatapp.synk.security_validator.UserInputValidator;
 import com.chatapp.synk.dto.UserDTO;
 import com.chatapp.synk.entity.Contact;
 import com.chatapp.synk.entity.User;

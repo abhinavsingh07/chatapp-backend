@@ -9,7 +9,7 @@ public interface MessageService {
 
     List<MessageDTO> getUnreadMessagesForReceiver(String conversationId, String receiverId);
 
-    MessageDTO createMessage(MessageDTO messageDTO);
+    MessageDTO saveMessage(MessageDTO messageDTO);
 
     void markMessageAsRead(String messageId);
 }

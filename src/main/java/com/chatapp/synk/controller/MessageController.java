@@ -39,7 +39,7 @@ public class MessageController {
     @PostMapping("/create")
     public ResponseEntity<SuccessResponse<MessageDTO>> sendMessage(@Valid @RequestBody MessageDTO messageDTO) {
         logger.info("Sending new message");
-        MessageDTO saved = messageService.createMessage(messageDTO);
+        MessageDTO saved = messageService.saveMessage(messageDTO);
         return ResponseEntity.ok(new SuccessResponse<>("200", "Message sent successfully", List.of(saved)));
     }
 

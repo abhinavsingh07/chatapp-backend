@@ -1,4 +1,4 @@
-package com.chatapp.synk.chat.security_validator;
+package com.chatapp.synk.security_validator;
 
 import com.chatapp.synk.dto.*;
 import com.chatapp.synk.enums.ConversationType;
@@ -210,7 +210,10 @@ public class InputValidationAndSanitizationService {
         checkFieldForPotentialSecurityRisks(dto.getMediaId(), 100, false, "mediaId");
 
         // Message content - could be optional but should be checked for XSS
-        checkFieldForPotentialSecurityRisks(dto.getContent(), 2000, false, "content");
+        // allow special should be true as user can enter ?,@,#,$ any special character
+        // and we are checking for security vulnerability.
+        checkFieldForPotentialSecurityRisks(dto.getContent(), 2000, true, "content");
+
 
         // Required field validation
         if (dto.getConversationId() == null || dto.getConversationId().trim().isEmpty()) {

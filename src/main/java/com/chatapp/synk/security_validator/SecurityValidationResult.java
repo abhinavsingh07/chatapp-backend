@@ -1,4 +1,4 @@
-package com.chatapp.synk.chat.security_validator;
+package com.chatapp.synk.security_validator;
 
 public class SecurityValidationResult {
     private final boolean valid;
