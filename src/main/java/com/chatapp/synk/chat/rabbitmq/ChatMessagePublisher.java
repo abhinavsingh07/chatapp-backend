@@ -1,9 +1,6 @@
 package com.chatapp.synk.chat.rabbitmq;
 
-import com.chatapp.synk.chat.common.ChatMessage;
-import com.chatapp.synk.chat.common.ChatUtil;
-import com.chatapp.synk.chat.common.DeliveryEnvelope;
-import com.chatapp.synk.chat.common.Json;
+import com.chatapp.synk.chat.common.*;
 import com.chatapp.synk.chat.websocket.LocalWsSessionRegistry;
 import com.chatapp.synk.enums.ChatWebSocketStatus;
 import com.chatapp.synk.exceptionHandler.ServiceException;
@@ -38,9 +35,9 @@ public class ChatMessagePublisher {
         String targetSessionId = (String) redisTemplate.opsForHash().get(redisKey, "sessionId");
 
         if (serverId == null) {
-            // user offline → fallback handling
+            // user offline → fallback like atleast save msg to db
             createInfoLog("[OFFLINE] Target user offline | toUserId={}. Persisting to DB for later delivery.", toUserId, chatMessage);
-            serverId = System.getProperty("server.id");
+            serverId = ServerIdProvider.getServerId();
         }
 
         try {

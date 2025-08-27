@@ -42,7 +42,7 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         String sessionId = wsSession.getId();
 
         if (userId == null) {
-            logger.warn("WS_CONNECT_REJECTED | sessionId={} reason=Missing userId", sessionId);
+            logger.warn("[WS_CONNECT_REJECTED] | sessionId={} reason=Missing userId", sessionId);
             wsSession.close(CloseStatus.BAD_DATA);
             return;
         }
@@ -54,11 +54,11 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         boolean hasDifferentRedisSession = (storedRedisSessionId != null && !storedRedisSessionId.equals(sessionId));
 
         if (hasLocalSession || hasDifferentRedisSession) {
-            logger.warn("WS_CONNECT_REJECTED | userId={} sessionId={} reason=Duplicate session", userId, sessionId);
+            logger.warn("[WS_CONNECT_REJECTED] | userId={} sessionId={} reason=Duplicate session", userId, sessionId);
             try {
                 wsSession.close(CloseStatus.POLICY_VIOLATION.withReason("Duplicate session"));
             } catch (IOException e) {
-                logger.error("WS_CLOSE_FAILED | userId={} sessionId={} error={}", userId, sessionId, e.getMessage(), e);
+                logger.error("[WS_CLOSE_FAILED] | userId={} sessionId={} error={}", userId, sessionId, e.getMessage(), e);
             }
             return;
         }
@@ -66,7 +66,7 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         localWsSessionRegistry.add(sessionId, userId, wsSession);
         redisSessionStore.saveUserSession(userId, serverId, sessionId);
 
-        logger.info("WS_CONNECTED | userId={} sessionId={} serverId={}", userId, sessionId, serverId);
+        logger.info("[WS_CONNECTED]| userId={} sessionId={} serverId={}", userId, sessionId, serverId);
 
         wsSession.sendMessage(new TextMessage(String.format("{\"type\":\"connected\",\"userId\":\"%s\",\"serverId\":\"%s\"}", userId, serverId)));
     }
@@ -76,16 +76,22 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         String userId = (String) wsSession.getAttributes().get("userId");
         String sessionId = wsSession.getId();
         String payload = message.getPayload();
-
         createInfoLog("[WS_MESSAGE_RECEIVED] | userId={} sessionId={} payload={}", userId, sessionId, payload);
 
         try {
             CompletableFuture.runAsync(() -> {
                 try {
                     ChatMessage chatMessage = Json.mapper().readValue(payload, ChatMessage.class);
-                    chatMessage.setFromUserId(userId);
-                    chatMessage.setSentAt(Instant.now().toString());
-
+                    if (ChatWebSocketStatus.HEARTBEAT.equals(chatMessage.getWsStatus())) {
+                        // For heartbeat, just update last active timestamp and return
+                        redisSessionStore.updateLastActiveTimestamp(userId);
+                        logger.info("[WS_HEARTBEAT] | userId={} sessionId={}", userId, sessionId, payload);
+                        return;
+                    } else if (ChatWebSocketStatus.CHAT.equals(chatMessage.getWsStatus())) {
+                        chatMessage.setSentAt(Instant.now().toString());//to show to other user as well as save in db.
+                        chatMessage.setFromUserId(userId);//to save in db message table.
+                    }
+                    //publish to rabbitmq
                     chatMessagePublisher.sendToUser(chatMessage);
 
                     createInfoLog("[WS_MESSAGE_PUBLISHED] | userId={} sessionId={} toUserId={}", userId, sessionId, chatMessage.getToUserId(), payload);

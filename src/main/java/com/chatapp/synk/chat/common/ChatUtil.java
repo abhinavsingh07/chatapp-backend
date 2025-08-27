@@ -20,6 +20,8 @@ public final class ChatUtil {
      */
     public static final String USER_KEY_PREFIX = "user:";
 
+    public static final String USER_LAST_ACTIVE_KEY = "user:lastActive:";
+
     /**
      * Queue name prefix: server-queue.{serverId}
      */
@@ -52,5 +54,9 @@ public final class ChatUtil {
 
     public static String buildQueueName(String serverId) {
         return SERVER_QUEUE_PREFIX + serverId;
+    }
+
+    public static String buildUserLastActiveKey(String userId) {
+        return USER_LAST_ACTIVE_KEY + userId;
     }
 }

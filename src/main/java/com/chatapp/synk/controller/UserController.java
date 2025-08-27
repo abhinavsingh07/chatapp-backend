@@ -1,6 +1,7 @@
 package com.chatapp.synk.controller;
 
 import com.chatapp.synk.dto.UserDTO;
+import com.chatapp.synk.dto.UserStatusDTO;
 import com.chatapp.synk.response.SuccessResponse;
 import com.chatapp.synk.service.UserService;
 import org.slf4j.Logger;
@@ -19,6 +20,7 @@ public class UserController {
     private static final Logger logger = LoggerFactory.getLogger(UserController.class);
 
     private final UserService userService;
+
 
     public UserController(UserService userService) {
         this.userService = userService;
@@ -69,5 +71,20 @@ public class UserController {
         logger.info("User ID {} deleted successfully", id);
 
         return ResponseEntity.ok(new SuccessResponse<>("200", "User deleted successfully", Collections.emptyList()));
+    }
+
+    @GetMapping("/lastActiveStatus")
+    public ResponseEntity<SuccessResponse<UserStatusDTO>> getLastActiveUserStatus(@RequestParam(name = "userId") String userId) {
+        if (userId == null || userId.isEmpty()) {
+            logger.warn("No user IDs provided for status check");
+            return ResponseEntity.ok(new SuccessResponse<>("400", "No user IDs provided", Collections.emptyList()));
+        }
+        logger.info("Fetching last active status for user IDs: {}", userId);
+        List<UserStatusDTO> result = userService.getLastActiveUserStatus(userId);
+        if (result.isEmpty()) {
+            logger.warn("No status found for provided user IDs");
+            return ResponseEntity.ok(new SuccessResponse<>("404", "No status found for provided user IDs", Collections.emptyList()));
+        }
+        return ResponseEntity.ok(new SuccessResponse<>("200", "User statuses fetched", result));
     }
 }

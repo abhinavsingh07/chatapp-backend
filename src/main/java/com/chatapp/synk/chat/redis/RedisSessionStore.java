@@ -6,6 +6,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -58,5 +59,19 @@ public class RedisSessionStore {
         String redisLookupKey = ChatUtil.buildUserKey(userId);//"user:{userid}"
         redisTemplate.delete(redisLookupKey);
         logger.info("Deleted session for userId={} with redisLookupKey={}", userId, redisLookupKey);
+    }
+
+    public void updateLastActiveTimestamp(String userid){
+        String redisLookupKey = ChatUtil.buildUserLastActiveKey(userid);
+        redisTemplate.opsForHash().put(redisLookupKey, "lastActive", Instant.now().toEpochMilli());
+        logger.debug("Updated lastActive for userId={} to {}", userid, Instant.now());
+    }
+
+    public String getLastActiveTimeStampUser(String userid){
+        String redisLookupKey = ChatUtil.buildUserLastActiveKey(userid);
+        Object v = redisTemplate.opsForHash().get(redisLookupKey, "lastActive");
+        String lastActive = v != null ? v.toString() : null;
+        logger.debug("Lookup lastActive for userId={} -> {}", userid, lastActive);
+        return lastActive;
     }
 }

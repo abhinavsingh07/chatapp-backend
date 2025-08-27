@@ -24,8 +24,8 @@ public class LocalWsSessionRegistry {
     }
 
     public WebSocketSession get(String userId) {
-        String wsSessionId= wsSessionToUser.get(userId);
-        WebSocketSession session = wsSessions.get(wsSessionId);
+        String wsSessionId = wsSessionToUser.get(userId);
+        WebSocketSession session = wsSessionId != null ? wsSessions.get(wsSessionId) : null;
         logger.debug("Lookup WebSocketSession for sessionId={} -> {}", wsSessionId, (wsSessionId != null ? "FOUND" : "NOT FOUND"));
         return session;
     }
@@ -37,7 +37,7 @@ public class LocalWsSessionRegistry {
     }
 
     public String remove(String userId) {
-        String wsSessionId= wsSessionToUser.get(userId);
+        String wsSessionId = wsSessionToUser.get(userId);
         wsSessions.remove(wsSessionId);
         wsSessionToUser.remove(userId);
         if (userId != null) {

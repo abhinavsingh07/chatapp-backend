@@ -1,9 +1,8 @@
 package com.chatapp.synk.service.impl;
 
-import com.chatapp.synk.security_validator.InputSecurityUtils;
-import com.chatapp.synk.security_validator.InputValidationAndSanitizationService;
-import com.chatapp.synk.security_validator.UserInputValidator;
+import com.chatapp.synk.chat.redis.RedisSessionStore;
 import com.chatapp.synk.dto.UserDTO;
+import com.chatapp.synk.dto.UserStatusDTO;
 import com.chatapp.synk.entity.Contact;
 import com.chatapp.synk.entity.User;
 import com.chatapp.synk.entity.UserRole;
@@ -13,6 +12,9 @@ import com.chatapp.synk.exceptionHandler.ServiceException;
 import com.chatapp.synk.repository.ContactRepository;
 import com.chatapp.synk.repository.UserRepository;
 import com.chatapp.synk.repository.UserRoleRepository;
+import com.chatapp.synk.security_validator.InputSecurityUtils;
+import com.chatapp.synk.security_validator.InputValidationAndSanitizationService;
+import com.chatapp.synk.security_validator.UserInputValidator;
 import com.chatapp.synk.service.UserService;
 import com.chatapp.synk.util.Mapper;
 import org.slf4j.Logger;
@@ -26,8 +28,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-import java.util.Optional;
+import java.time.Instant;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -38,12 +40,14 @@ public class UserServiceImpl implements UserService {
     private final PasswordEncoder passwordEncoder;
     private final ContactRepository contactRepository;
     private final UserRoleRepository userRoleRepository;
+    private final RedisSessionStore redisSessionStore;
 
-    public UserServiceImpl(UserRepository userRepository, PasswordEncoder passwordEncoder, ContactRepository contactRepository, UserRoleRepository userRoleRepository) {
+    public UserServiceImpl(UserRepository userRepository, PasswordEncoder passwordEncoder, ContactRepository contactRepository, UserRoleRepository userRoleRepository, RedisSessionStore redisSessionStore) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.contactRepository = contactRepository;
         this.userRoleRepository = userRoleRepository;
+        this.redisSessionStore = redisSessionStore;
     }
 
     //id is userId
@@ -107,8 +111,7 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional//Now the entire flow, including saving user and updating contacts, happens in a single transaction.
-    @Caching(put = {@CachePut(value = "userCache", key = "#result.id", unless = "#result == null")},
-            evict = {@CacheEvict(value = "userListCache", key = "'allUsers'", beforeInvocation = true)})
+    @Caching(put = {@CachePut(value = "userCache", key = "#result.id", unless = "#result == null")}, evict = {@CacheEvict(value = "userListCache", key = "'allUsers'", beforeInvocation = true)})
     public UserDTO createUser(UserDTO userDTO) {
         logger.info("Creating new user with phone: {}", userDTO.getPhoneNumber());
         try {
@@ -146,8 +149,7 @@ public class UserServiceImpl implements UserService {
 
 
     @Override
-    @Caching(put = {@CachePut(value = "userCache", key = "#userId", unless = "#result == null")},
-            evict = {@CacheEvict(value = "userListCache", key = "'allUsers'",beforeInvocation = true)})
+    @Caching(put = {@CachePut(value = "userCache", key = "#userId", unless = "#result == null")}, evict = {@CacheEvict(value = "userListCache", key = "'allUsers'", beforeInvocation = true)})
     public UserDTO updateUser(String userId, UserDTO userDTO) {
         logger.info("Updating user with ID: {}", userId);
         String validId = InputSecurityUtils.secureId(userId);
@@ -182,5 +184,25 @@ public class UserServiceImpl implements UserService {
         String validId = InputSecurityUtils.secureId(userId);
         userRepository.deleteById(validId);
         logger.info("User with ID {} deleted successfully", userId);
+    }
+
+    @Override
+    public List<UserStatusDTO> getLastActiveUserStatus(String userId) {
+        logger.info("Fetching last active time stamp for user ids provided:{}", userId);
+        long now = Instant.now().toEpochMilli();
+        List<UserStatusDTO> result = new ArrayList<>();
+        String[] userIds = Arrays.stream(userId.split(","))
+                .map(InputSecurityUtils::secureId)
+                .filter(s -> !s.isEmpty())
+                .toArray(String[]::new);//it will come in comma seprated values.
+        logger.info("User ids after validation: {}", userIds);
+        for (String uid : userIds) {
+            if (redisSessionStore.getLastActiveTimeStampUser(uid) != null) {
+                String lastActive = redisSessionStore.getLastActiveTimeStampUser(uid);
+                boolean online = lastActive != null && (now - Long.parseLong(lastActive)) <= 15000;//if last active within 15 seconds, consider online
+                result.add(new UserStatusDTO(userId, online, lastActive));
+            }
+        }
+        return result;
     }
 }

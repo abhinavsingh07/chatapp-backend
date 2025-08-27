@@ -1,6 +1,7 @@
 package com.chatapp.synk.service;
 
 import com.chatapp.synk.dto.UserDTO;
+import com.chatapp.synk.dto.UserStatusDTO;
 
 import java.util.List;
 
@@ -17,4 +18,6 @@ public interface UserService {
     UserDTO updateUser(String userId, UserDTO userDTO);
 
     void deleteUser(String userId);
+
+    List<UserStatusDTO> getLastActiveUserStatus(String userId);
 }
