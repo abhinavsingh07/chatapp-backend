@@ -32,10 +32,13 @@ public class ConversationParticipantServiceImpl implements ConversationParticipa
     @Override
     @CachePut(value = "participantCache", key = "#result.id")
     public ConversationParticipantDTO addParticipant(ConversationParticipantDTO dto) {
-        logger.info("Adding participant to conversation {}", dto.getConversationId());
+        if (logger.isDebugEnabled()) {
+            logger.debug("Adding participant to conversation {}", dto.getConversationId());
+        }
         ConversationParticipantDTO validDTO = InputValidationAndSanitizationService.validateAndSanitize(dto);
         ConversationParticipant entity = Mapper.mapToParticipantEntity(validDTO);
         ConversationParticipant saved = repository.save(entity);
+
         logger.info("Participant added with ID: {}", saved.getId());
         return Mapper.mapToParticipantDTO(saved);
     }
@@ -43,7 +46,9 @@ public class ConversationParticipantServiceImpl implements ConversationParticipa
     @Override
     @Cacheable(value = "participantCache", key = "#id", unless = "#result == null")
     public ConversationParticipantDTO getParticipantById(String id) {
-        logger.info("Fetching participant by ID: {}", id);
+        if (logger.isDebugEnabled()) {
+            logger.debug("Fetching participant by ID: {}", id);
+        }
         String validId = InputSecurityUtils.secureId(id);
         Optional<ConversationParticipantDTO> result = repository.findById(validId).map(Mapper::mapToParticipantDTO);
 
@@ -57,14 +62,16 @@ public class ConversationParticipantServiceImpl implements ConversationParticipa
     @Override
     @Cacheable(value = "participantCache", key = "#conversationId", unless = "#result == null or #result.isEmpty()")
     public List<ConversationParticipantDTO> getParticipantsByConversationId(String conversationId) {
-        logger.info("Fetching participants for conversation ID: {}", conversationId.trim());
+        if (logger.isDebugEnabled()) {
+            logger.debug("Fetching participants for conversation ID: {}", conversationId.trim());
+        }
         String validId = InputSecurityUtils.secureId(conversationId);
         List<ConversationParticipant> list = repository.findByConversationId(validId);
         return list.stream().map(Mapper::mapToParticipantDTO).collect(Collectors.toList());
     }
 
     @Override
-    @CacheEvict(value = "participantCache", key = "#id",beforeInvocation = true)
+    @CacheEvict(value = "participantCache", key = "#id", beforeInvocation = true)
     public void deleteByConversationid(String id) {
         logger.info("Removing all conversation participants with conversation ID: {}", id);
         String validId = InputSecurityUtils.secureId(id);
@@ -74,3 +81,4 @@ public class ConversationParticipantServiceImpl implements ConversationParticipa
         }
     }
 }
+

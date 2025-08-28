@@ -16,11 +16,9 @@ import java.util.List;
 @RequestMapping("/api/users")
 public class UserController {
 
-    //Basic Setup with SLF4J logger
     private static final Logger logger = LoggerFactory.getLogger(UserController.class);
 
     private final UserService userService;
-
 
     public UserController(UserService userService) {
         this.userService = userService;
@@ -28,24 +26,18 @@ public class UserController {
 
     @GetMapping("/all")
     public ResponseEntity<SuccessResponse<UserDTO>> getAllUsers() {
-        logger.info("Fetching all users");
         List<UserDTO> users = userService.getAllUsers();
         if (users.isEmpty()) {
             logger.warn("No users found");
             return ResponseEntity.ok(new SuccessResponse<>("404", "No users found", Collections.emptyList()));
-        } else {
-            logger.info("Found {} users", users.size());
-            return ResponseEntity.ok(new SuccessResponse<>("200", "Users fetched successfully", users));
         }
+        return ResponseEntity.ok(new SuccessResponse<>("200", "Users fetched successfully", users));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<SuccessResponse<UserDTO>> getUserById(@PathVariable(required = true) String id) {
-        logger.info("Fetching user with ID: {}", id);
-
+    public ResponseEntity<SuccessResponse<UserDTO>> getUserById(@PathVariable String id) {
         UserDTO userOpt = userService.getUserById(id);
         if (userOpt != null) {
-            logger.info("User with ID {} found", id);
             return ResponseEntity.ok(new SuccessResponse<>("200", "User fetched", List.of(userOpt)));
         } else {
             logger.warn("User with ID {} not found", id);
@@ -54,37 +46,29 @@ public class UserController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<SuccessResponse<UserDTO>> updateUser(@PathVariable(required = true) String id, @RequestBody UserDTO userDTO) {
-        logger.info("Received update request for user ID: {}", id);
-
+    public ResponseEntity<SuccessResponse<UserDTO>> updateUser(@PathVariable String id, @RequestBody UserDTO userDTO) {
         UserDTO updatedUser = userService.updateUser(id, userDTO);
-        logger.info("User ID {} updated successfully", id);
-
         return ResponseEntity.ok(new SuccessResponse<>("200", "User updated successfully", List.of(updatedUser)));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<SuccessResponse<Void>> deleteUser(@PathVariable(required = true) String id) {
-        logger.info("Received delete request for user ID: {}", id);
-
+    public ResponseEntity<SuccessResponse<Void>> deleteUser(@PathVariable String id) {
         userService.deleteUser(id);
-        logger.info("User ID {} deleted successfully", id);
-
         return ResponseEntity.ok(new SuccessResponse<>("200", "User deleted successfully", Collections.emptyList()));
     }
 
     @GetMapping("/lastActiveStatus")
-    public ResponseEntity<SuccessResponse<UserStatusDTO>> getLastActiveUserStatus(@RequestParam(name = "userId") String userId) {
+    public ResponseEntity<SuccessResponse<UserStatusDTO>> getLastActiveUserStatus(@RequestParam String userId) {
         if (userId == null || userId.isEmpty()) {
-            logger.warn("No user IDs provided for status check");
-            return ResponseEntity.ok(new SuccessResponse<>("400", "No user IDs provided", Collections.emptyList()));
+            logger.warn("No user ID provided for status check");
+            return ResponseEntity.ok(new SuccessResponse<>("400", "No user ID provided", Collections.emptyList()));
         }
-        logger.info("Fetching last active status for user IDs: {}", userId);
         List<UserStatusDTO> result = userService.getLastActiveUserStatus(userId);
         if (result.isEmpty()) {
-            logger.warn("No status found for provided user IDs");
-            return ResponseEntity.ok(new SuccessResponse<>("404", "No status found for provided user IDs", Collections.emptyList()));
+            logger.warn("No status found for user ID {}", userId);
+            return ResponseEntity.ok(new SuccessResponse<>("404", "No status found", Collections.emptyList()));
         }
         return ResponseEntity.ok(new SuccessResponse<>("200", "User statuses fetched", result));
     }
 }
+

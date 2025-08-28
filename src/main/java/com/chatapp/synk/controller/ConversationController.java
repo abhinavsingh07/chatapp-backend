@@ -10,7 +10,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -19,23 +18,25 @@ import java.util.List;
 public class ConversationController {
     private static final Logger logger = LoggerFactory.getLogger(ConversationController.class);
     private final ConversationService conversationService;
+
     public ConversationController(ConversationService conversationService) {
         this.conversationService = conversationService;
     }
 
     @PostMapping
     public ResponseEntity<SuccessResponse<ConversationDTO>> create(@Valid @RequestBody ConversationDTO dto) {
-        logger.info("Received request to create conversation");
         ConversationDTO created = conversationService.createConversation(dto);
+        logger.info("Conversation created successfully with ID: {}", created.getId());
         return ResponseEntity.ok(new SuccessResponse<>("201", "Conversation created", List.of(created)));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<SuccessResponse<ConversationDTO>> getById(@PathVariable(required = true) String id) {
-        logger.info("Fetching conversation with ID: {}", id);
+    public ResponseEntity<SuccessResponse<ConversationDTO>> getById(@PathVariable String id) {
+        logger.debug("Fetching conversation with ID: {}", id);
         ConversationDTO convo = conversationService.getConversationById(id);
 
         if (convo != null) {
+            logger.info("Conversation found with ID: {}", id);
             return ResponseEntity.ok(new SuccessResponse<>("200", "Conversation found", List.of(convo)));
         } else {
             logger.warn("Conversation not found with ID: {}", id);
@@ -45,13 +46,13 @@ public class ConversationController {
 
     @GetMapping("/all")
     public ResponseEntity<SuccessResponse<ConversationDTO>> getAllConversations() {
-        logger.info("Fetching all conversations");
+        logger.debug("Fetching all conversations");
         List<ConversationDTO> conversations = conversationService.findAll();
 
         if (conversations.isEmpty()) {
             logger.warn("No conversations found");
         } else {
-            logger.info("Found {} conversations", conversations.size());
+            logger.info("Retrieved {} conversations", conversations.size());
         }
 
         String msg = conversations.isEmpty() ? "No conversations available" : "Conversations retrieved";
@@ -61,18 +62,19 @@ public class ConversationController {
     }
 
     @PostMapping("/get-or-create/{fromUserId}/{toUserId}")
-    public ResponseEntity<SuccessResponse<String>> getOrCreateConversation(@PathVariable(required = true) String fromUserId, @PathVariable(required = true) String toUserId) {
-
+    public ResponseEntity<SuccessResponse<String>> getOrCreateConversation(@PathVariable String fromUserId,
+                                                                           @PathVariable String toUserId) {
         logger.info("Request to get or create conversation between {} and {}", fromUserId, toUserId);
 
         String conversationId = conversationService.getOrCreateConversation(fromUserId, toUserId);
 
         if (conversationId == null) {
-            logger.warn("No conversation could be created between {} and {}", fromUserId, toUserId);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new SuccessResponse<>("500", "Failed to create or fetch conversation", null));
+            logger.error("Failed to create or fetch conversation between {} and {}", fromUserId, toUserId);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new SuccessResponse<>("500", "Failed to create or fetch conversation", null));
         }
 
         logger.info("Conversation {} found/created successfully between {} and {}", conversationId, fromUserId, toUserId);
-        return ResponseEntity.ok(new SuccessResponse<>("200", "Conversation found/created successfully", Arrays.asList(conversationId)));
+        return ResponseEntity.ok(new SuccessResponse<>("200", "Conversation found/created successfully", List.of(conversationId)));
     }
 }

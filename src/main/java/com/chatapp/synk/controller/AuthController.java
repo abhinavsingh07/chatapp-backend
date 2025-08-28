@@ -30,13 +30,10 @@ import java.util.stream.Collectors;
 public class AuthController {
     private static final Logger logger = LoggerFactory.getLogger(AuthController.class);
 
-    private AuthenticationManager authenticationManager;
-
-    private JwtUtil jwtUtil;
-
-    private CustomUserDetailsService userDetailsService;
-
-    private UserService userService;
+    private final AuthenticationManager authenticationManager;
+    private final JwtUtil jwtUtil;
+    private final CustomUserDetailsService userDetailsService;
+    private final UserService userService;
 
     public AuthController(AuthenticationManager authenticationManager, JwtUtil jwtUtil, CustomUserDetailsService userDetailsService, UserService userService) {
         this.authenticationManager = authenticationManager;
@@ -47,38 +44,44 @@ public class AuthController {
 
     @PostMapping("/authenticate")
     public ResponseEntity<JwtResponse> authenticate(@Valid @RequestBody AuthDTO authDTO) throws ServiceException {
-        logger.info("Authenticating user with phone number: {}", authDTO.getPhoneNumberOrEmail());
+        if (logger.isDebugEnabled()) {
+            logger.debug("Authentication request received for identifier: {}", maskIdentifier(authDTO.getPhoneNumberOrEmail()));
+        }
+
         AuthDTO sanitizedDTO = InputValidationAndSanitizationService.validateAndSanitize(authDTO);
-        //authenticate user using phone number or email and password
         Authentication auth = authenticate(sanitizedDTO.getPhoneNumberOrEmail(), sanitizedDTO.getPassword());
-        //token generation flow
-        CustomUserDetails user = (CustomUserDetails) auth.getPrincipal();//it has userdetails called in phonenoauthprovder by constructor we are setting when user verfies.
-        // Add all required claims
+
+        CustomUserDetails user = (CustomUserDetails) auth.getPrincipal();
         Map<String, Object> claims = new HashMap<>();
         claims.put("roles", user.getAuthorities().stream().map(authObj -> authObj.getAuthority()).collect(Collectors.toList()));
         claims.put("id", user.getId());
-        //claims.put("name", user.getName());
         claims.put("email", user.getEmail());
-        // claims.put("profilePictureUrl", user.getProfilePictureUrl());
 
-        // Generate JWT token
         String token = jwtUtil.generateToken(claims, user.getUsername());
-        logger.info("JWT token generated successfully for user: {}", sanitizedDTO.getPhoneNumberOrEmail());
+
+        if (logger.isDebugEnabled()) {
+            logger.debug("JWT token generated for user: {}", maskIdentifier(user.getUsername()));
+        }
+
         return ResponseEntity.ok(new JwtResponse(token, user.getEmail(), user.getName(), user.getUserRoles(), user.getEmail(), user.getProfilePictureUrl(), user.getId()));
     }
 
     private Authentication authenticate(String username, String password) throws ServiceException {
         try {
-            logger.info("Attempting authentication for user: {}", username);
-            //internally call our custom PhoneNumberAuthenticationProvider authenticate method
+            if (logger.isDebugEnabled()) {
+                logger.debug("Attempting authentication for user: {}", maskIdentifier(username));
+            }
             Authentication auth = authenticationManager.authenticate(new PhoneNumberAuthenticationToken(username, password));
-            logger.info("Authentication successful for user: {}", username);
+
+            if (logger.isDebugEnabled()) {
+                logger.debug("Authentication successful for user: {}", maskIdentifier(username));
+            }
             return auth;
         } catch (DisabledException e) {
-            logger.error("User account is disabled: {}", username);
+            logger.warn("Authentication failed - account disabled for user: {}", maskIdentifier(username));
             throw new ServiceException("USER_DISABLED", e);
         } catch (BadCredentialsException e) {
-            logger.error("Invalid credentials for user: {}", username);
+            logger.warn("Authentication failed - invalid credentials for user: {}", maskIdentifier(username));
             throw new ServiceException("INVALID_CREDENTIALS", e);
         }
     }
@@ -86,14 +89,29 @@ public class AuthController {
     @PostMapping("/register")
     public ResponseEntity<SuccessResponse<UserDTO>> createUser(@Valid @RequestBody UserDTO userDTO) {
         try {
-            logger.info("Registering new user with phone number: {}", userDTO.getPhoneNumber());
+            if (logger.isDebugEnabled()) {
+                logger.debug("Registering new user with identifier: {}", maskIdentifier(userDTO.getPhoneNumber()));
+            }
             UserDTO savedUser = userService.createUser(userDTO);
             savedUser.setPassword("********");  // Mask password in response
+
             logger.info("User registration successful. User ID: {}", savedUser.getId());
             return ResponseEntity.ok(new SuccessResponse<>("200", "User created successfully", List.of(savedUser)));
         } catch (Exception ex) {
-            logger.error("User creation failed: {}", ex.getMessage());
+            logger.error("Unexpected error during user creation", ex);
+            return ResponseEntity.status(500).body(new SuccessResponse<>("500", "User creation failed", List.of()));
         }
-        return ResponseEntity.status(500).body(new SuccessResponse<>("500", "User creation failed", List.of()));
+    }
+
+    private String maskIdentifier(String identifier) {
+        if (identifier == null) return "null";
+        // mask email/phone for logs: e.g., 98****1234 or j***@domain.com
+        if (identifier.contains("@")) {
+            int idx = identifier.indexOf("@");
+            return identifier.charAt(0) + "***" + identifier.substring(idx);
+        } else if (identifier.length() > 4) {
+            return identifier.substring(0, 2) + "****" + identifier.substring(identifier.length() - 2);
+        }
+        return "****";
     }
 }

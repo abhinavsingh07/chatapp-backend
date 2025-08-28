@@ -42,7 +42,11 @@ public class UserServiceImpl implements UserService {
     private final UserRoleRepository userRoleRepository;
     private final RedisSessionStore redisSessionStore;
 
-    public UserServiceImpl(UserRepository userRepository, PasswordEncoder passwordEncoder, ContactRepository contactRepository, UserRoleRepository userRoleRepository, RedisSessionStore redisSessionStore) {
+    public UserServiceImpl(UserRepository userRepository,
+                           PasswordEncoder passwordEncoder,
+                           ContactRepository contactRepository,
+                           UserRoleRepository userRoleRepository,
+                           RedisSessionStore redisSessionStore) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.contactRepository = contactRepository;
@@ -50,30 +54,28 @@ public class UserServiceImpl implements UserService {
         this.redisSessionStore = redisSessionStore;
     }
 
-    //id is userId
     @Override
     @Cacheable(value = "userListCache", key = "'allUsers'", unless = "#result == null or #result.isEmpty()")
     public List<UserDTO> getAllUsers() {
-        logger.info("Fetching all users");
-        List<UserDTO> allusers = userRepository.findAll().stream().map(Mapper::mapToUserDTO).collect(Collectors.toList());
-        //remove password from all users
-        allusers.forEach(user -> user.setPassword("********")); // Mask passwords
-        return allusers;
+        logger.debug("Fetching all users");
+        List<UserDTO> allUsers = userRepository.findAll()
+                .stream()
+                .map(Mapper::mapToUserDTO)
+                .collect(Collectors.toList());
+        allUsers.forEach(user -> user.setPassword("********")); // Mask passwords
+        return allUsers;
     }
 
     @Override
-    //using in userdetails service.
-    //Caching we do explicitly using cache manage inside method
     public UserDTO getUserByPhoneNumberOrEmail(String phoneNumberOrEmail) {
         Optional<UserDTO> result;
-
         String validPhoneNumberOrEmail = InputSecurityUtils.secureLoginId(phoneNumberOrEmail);
 
         if (UserInputValidator.isValidEmail(validPhoneNumberOrEmail)) {
-            logger.info("Fetching user by email: {}", validPhoneNumberOrEmail);
+            logger.debug("Fetching user by email: {}", validPhoneNumberOrEmail);
             result = userRepository.findByEmail(validPhoneNumberOrEmail).map(Mapper::mapToUserDTO);
         } else if (UserInputValidator.isValidPhoneNumber(validPhoneNumberOrEmail)) {
-            logger.info("Fetching user by phone number: {}", validPhoneNumberOrEmail);
+            logger.debug("Fetching user by phone number: {}", validPhoneNumberOrEmail);
             result = userRepository.findByPhoneNumber(validPhoneNumberOrEmail).map(Mapper::mapToUserDTO);
         } else {
             logger.error("Invalid identifier format: {}", validPhoneNumberOrEmail);
@@ -85,15 +87,13 @@ public class UserServiceImpl implements UserService {
             throw new ServiceException("User not found with ID", HttpStatus.NOT_FOUND);
         }
 
-        // Manually cache this using CacheManager (optional)
-        //cacheManager.getCache("userCache").put(result.get().getId(), result.get());
         return result.get();
     }
 
     @Override
     @Cacheable(value = "userCache", key = "#userId", unless = "#result == null")
     public UserDTO getUserById(String userId) {
-        logger.info("Fetching user by ID: {}", userId);
+        logger.debug("Fetching user by ID: {}", userId);
         String validId = InputSecurityUtils.secureId(userId);
 
         Optional<UserDTO> result = userRepository.findById(validId).map(Mapper::mapToUserDTO);
@@ -104,27 +104,31 @@ public class UserServiceImpl implements UserService {
         }
 
         UserDTO userDTO = result.get();
-        userDTO.setPassword("********"); // Mask password for security
-        return result.get();
+        userDTO.setPassword("********"); // Mask password
+        return userDTO;
     }
 
-
     @Override
-    @Transactional//Now the entire flow, including saving user and updating contacts, happens in a single transaction.
-    @Caching(put = {@CachePut(value = "userCache", key = "#result.id", unless = "#result == null")}, evict = {@CacheEvict(value = "userListCache", key = "'allUsers'", beforeInvocation = true)})
+    @Transactional
+    @Caching(put = {
+            @CachePut(value = "userCache", key = "#result.id", unless = "#result == null")
+    }, evict = {
+            @CacheEvict(value = "userListCache", key = "'allUsers'", beforeInvocation = true)
+    })
     public UserDTO createUser(UserDTO userDTO) {
         logger.info("Creating new user with phone: {}", userDTO.getPhoneNumber());
         try {
-            //first validate the dto
-            UserDTO vaildatedDTO = InputValidationAndSanitizationService.validateAndSanitize(userDTO);
-            User user = Mapper.mapToUserEntity(vaildatedDTO, passwordEncoder);
-            // Always assign ROLE_USER by default
-            UserRole userRole = userRoleRepository.findByName(RoleName.ROLE_USER).orElseThrow(() -> new RuntimeException("Default role not found"));
+            UserDTO validatedDTO = InputValidationAndSanitizationService.validateAndSanitize(userDTO);
+            User user = Mapper.mapToUserEntity(validatedDTO, passwordEncoder);
+
+            // Assign ROLE_USER
+            UserRole userRole = userRoleRepository.findByName(RoleName.ROLE_USER)
+                    .orElseThrow(() -> new RuntimeException("Default role not found"));
             user.setUserRole(userRole.getName());
 
             User savedUser = userRepository.save(user);
-            logger.info("User saved successfully with ID: {}", savedUser.getId());
-            //handle invited flow if applicable
+            logger.info("User created successfully with ID: {}", savedUser.getId());
+
             handleInvitedFlow(savedUser);
 
             return Mapper.mapToUserDTO(savedUser);
@@ -134,33 +138,37 @@ public class UserServiceImpl implements UserService {
         }
     }
 
-
     private void handleInvitedFlow(User savedUser) {
-        logger.info("Handling invited flow for user: {}", savedUser.getEmail());
+        logger.debug("Handling invited flow for user: {}", savedUser.getEmail());
         List<Contact> contacts = contactRepository.findByEmailAndContactUserIdIsNull(savedUser.getEmail());
         if (!contacts.isEmpty()) {
-            // Update contacts whose email matches this new user’s email but have null contactUserId
-            int updatedCount = contactRepository.updateContactUserIdByEmail(savedUser.getId(), ContactStatus.ADDED, savedUser.getEmail());
-            logger.info("Updated contactUserId for {} contacts matching email  {}", updatedCount, savedUser.getEmail());
-        } else {
-            logger.info("No pending contacts to update for email {}", savedUser.getEmail());
+            int updatedCount = contactRepository.updateContactUserIdByEmail(
+                    savedUser.getId(),
+                    ContactStatus.ADDED,
+                    savedUser.getEmail()
+            );
+            logger.info("Updated contactUserId for {} contacts matching email {}", updatedCount, savedUser.getEmail());
         }
     }
 
-
     @Override
-    @Caching(put = {@CachePut(value = "userCache", key = "#userId", unless = "#result == null")}, evict = {@CacheEvict(value = "userListCache", key = "'allUsers'", beforeInvocation = true)})
+    @Caching(put = {
+            @CachePut(value = "userCache", key = "#userId", unless = "#result == null")
+    }, evict = {
+            @CacheEvict(value = "userListCache", key = "'allUsers'", beforeInvocation = true)
+    })
     public UserDTO updateUser(String userId, UserDTO userDTO) {
         logger.info("Updating user with ID: {}", userId);
         String validId = InputSecurityUtils.secureId(userId);
 
         Optional<User> optionalUser = userRepository.findById(validId);
         if (optionalUser.isEmpty()) {
-            logger.error("User not found while updating. ID: {}", validId);
+            logger.warn("User not found while updating. ID: {}", validId);
             throw new ServiceException("User not found with ID", HttpStatus.NOT_FOUND);
         }
-        UserDTO validDTO = InputValidationAndSanitizationService.validateAndSanitize(userDTO);
+
         try {
+            UserDTO validDTO = InputValidationAndSanitizationService.validateAndSanitize(userDTO);
             User user = optionalUser.get();
             user.setName(validDTO.getName());
             user.setProfilePictureUrl(validDTO.getProfilePictureUrl());
@@ -170,39 +178,42 @@ public class UserServiceImpl implements UserService {
             logger.info("User updated successfully. ID: {}", updatedUser.getId());
             return Mapper.mapToUserDTO(updatedUser);
         } catch (Exception ex) {
-            logger.error("Error while updating user with ID: {}", userId, ex.getMessage());
+            logger.error("Error while updating user with ID: {}", userId, ex);
             throw new ServiceException(ex.getMessage());
         }
     }
 
     @Override
-    @Caching(evict = {@CacheEvict(value = "userCache", key = "#userId", beforeInvocation = true),      // evict single user
-            @CacheEvict(value = "userListCache", key = "'allUsers'", beforeInvocation = true) // evict cached user list beforeInvocation = true evict cache before even if method runs successfuly or not
+    @Caching(evict = {
+            @CacheEvict(value = "userCache", key = "#userId", beforeInvocation = true),
+            @CacheEvict(value = "userListCache", key = "'allUsers'", beforeInvocation = true)
     })
     public void deleteUser(String userId) {
         logger.info("Deleting user with ID: {}", userId);
         String validId = InputSecurityUtils.secureId(userId);
         userRepository.deleteById(validId);
-        logger.info("User with ID {} deleted successfully", userId);
+        logger.info("User deleted successfully. ID: {}", userId);
     }
 
     @Override
     public List<UserStatusDTO> getLastActiveUserStatus(String userId) {
-        logger.info("Fetching last active time stamp for user ids provided:{}", userId);
+        logger.debug("Fetching last active timestamp for user(s): {}", userId);
         long now = Instant.now().toEpochMilli();
         List<UserStatusDTO> result = new ArrayList<>();
+
         String[] userIds = Arrays.stream(userId.split(","))
                 .map(InputSecurityUtils::secureId)
                 .filter(s -> !s.isEmpty())
-                .toArray(String[]::new);//it will come in comma seprated values.
-        logger.info("User ids after validation: {}", userIds);
+                .toArray(String[]::new);
+
         for (String uid : userIds) {
-            if (redisSessionStore.getLastActiveTimeStampUser(uid) != null) {
-                String lastActive = redisSessionStore.getLastActiveTimeStampUser(uid);
-                boolean online = lastActive != null && (now - Long.parseLong(lastActive)) <= 15000;//if last active within 15 seconds, consider online
-                result.add(new UserStatusDTO(userId, online, lastActive));
+            String lastActive = redisSessionStore.getLastActiveTimeStampUser(uid);
+            if (lastActive != null) {
+                boolean online = (now - Long.parseLong(lastActive)) <= 3000;// 3 seconds if user is offline
+                result.add(new UserStatusDTO(uid, online, lastActive));
             }
         }
         return result;
     }
 }
+

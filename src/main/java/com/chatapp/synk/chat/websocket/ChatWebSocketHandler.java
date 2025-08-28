@@ -5,7 +5,6 @@ import com.chatapp.synk.chat.common.Json;
 import com.chatapp.synk.chat.rabbitmq.ChatMessagePublisher;
 import com.chatapp.synk.chat.redis.RedisSessionStore;
 import com.chatapp.synk.enums.ChatWebSocketStatus;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -28,7 +27,10 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
     private final ChatMessagePublisher chatMessagePublisher;
     private final ExecutorService taskExecutor;
 
-    public ChatWebSocketHandler(LocalWsSessionRegistry localWsSessionRegistry, RedisSessionStore redisSessionStore, ChatMessagePublisher chatMessagePublisher, ExecutorService taskExecutor) {
+    public ChatWebSocketHandler(LocalWsSessionRegistry localWsSessionRegistry,
+                                RedisSessionStore redisSessionStore,
+                                ChatMessagePublisher chatMessagePublisher,
+                                ExecutorService taskExecutor) {
         this.localWsSessionRegistry = localWsSessionRegistry;
         this.redisSessionStore = redisSessionStore;
         this.chatMessagePublisher = chatMessagePublisher;
@@ -46,7 +48,7 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
             wsSession.close(CloseStatus.BAD_DATA);
             return;
         }
-        // Check if the user already has an active session in local or Redis
+
         WebSocketSession localSession = localWsSessionRegistry.get(userId);
         String storedRedisSessionId = redisSessionStore.getUserSessionId(userId);
 
@@ -66,9 +68,10 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         localWsSessionRegistry.add(sessionId, userId, wsSession);
         redisSessionStore.saveUserSession(userId, serverId, sessionId);
 
-        logger.info("[WS_CONNECTED]| userId={} sessionId={} serverId={}", userId, sessionId, serverId);
+        logger.info("[WS_CONNECTED] | userId={} sessionId={} serverId={}", userId, sessionId, serverId);
 
-        wsSession.sendMessage(new TextMessage(String.format("{\"type\":\"connected\",\"userId\":\"%s\",\"serverId\":\"%s\"}", userId, serverId)));
+        wsSession.sendMessage(new TextMessage(String.format(
+                "{\"type\":\"connected\",\"userId\":\"%s\",\"serverId\":\"%s\"}", userId, serverId)));
     }
 
     @Override
@@ -76,27 +79,30 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         String userId = (String) wsSession.getAttributes().get("userId");
         String sessionId = wsSession.getId();
         String payload = message.getPayload();
-        createInfoLog("[WS_MESSAGE_RECEIVED] | userId={} sessionId={} payload={}", userId, sessionId, payload);
+
+        logger.debug("[WS_MESSAGE_RECEIVED] | userId={} sessionId={} payload={}", userId, sessionId, payload);
 
         try {
             CompletableFuture.runAsync(() -> {
                 try {
                     ChatMessage chatMessage = Json.mapper().readValue(payload, ChatMessage.class);
                     if (ChatWebSocketStatus.HEARTBEAT.equals(chatMessage.getWsStatus())) {
-                        // For heartbeat, just update last active timestamp and return
                         redisSessionStore.updateLastActiveTimestamp(userId);
-                        logger.info("[WS_HEARTBEAT] | userId={} sessionId={}", userId, sessionId, payload);
+                        logger.debug("[WS_HEARTBEAT] | userId={} sessionId={}", userId, sessionId);
                         return;
                     } else if (ChatWebSocketStatus.CHAT.equals(chatMessage.getWsStatus())) {
-                        chatMessage.setSentAt(Instant.now().toString());//to show to other user as well as save in db.
-                        chatMessage.setFromUserId(userId);//to save in db message table.
+                        chatMessage.setSentAt(Instant.now().toString());
+                        chatMessage.setFromUserId(userId);
                     }
-                    //publish to rabbitmq
+
                     chatMessagePublisher.sendToUser(chatMessage);
 
-                    createInfoLog("[WS_MESSAGE_PUBLISHED] | userId={} sessionId={} toUserId={}", userId, sessionId, chatMessage.getToUserId(), payload);
+                    logger.info("[WS_MESSAGE_PUBLISHED] | userId={} sessionId={} toUserId={}",
+                            userId, sessionId, chatMessage.getToUserId());
+
                 } catch (Exception ex) {
-                    logger.error("[WS_MESSAGE_PROCESSING_FAILED] | userId={} sessionId={} payload={}", userId, sessionId, payload, ex);
+                    logger.error("[WS_MESSAGE_PROCESSING_FAILED] | userId={} sessionId={} payload={}",
+                            userId, sessionId, payload, ex);
                     try {
                         wsSession.sendMessage(new TextMessage("{\"error\":\"Invalid message format or server error\"}"));
                     } catch (IOException ioEx) {
@@ -104,12 +110,14 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
                     }
                 }
             }, taskExecutor).exceptionally(ex -> {
-                logger.error("[WS_ASYNC_TASK_FAILED] | userId={} sessionId={} payload={}", userId, sessionId, payload, ex);
+                logger.error("[WS_ASYNC_TASK_FAILED] | userId={} sessionId={} payload={}",
+                        userId, sessionId, payload, ex);
                 return null;
             });
 
         } catch (Exception e) {
-            logger.error("[WS_TASK_SUBMISSION_FAILED] | userId={} sessionId={} payload={}", userId, sessionId, payload, e);
+            logger.error("[WS_TASK_SUBMISSION_FAILED] | userId={} sessionId={} payload={}",
+                    userId, sessionId, payload, e);
             wsSession.sendMessage(new TextMessage("{\"error\":\"Server error, please retry\"}"));
         }
     }
@@ -133,18 +141,6 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
             }
         } catch (Exception e) {
             logger.error("[WS_CLEANUP_FAILED] | userId={} sessionId={}", userId, sessionId, e);
-        }
-    }
-
-    private void createInfoLog(String template, Object... args) {
-        try {
-            String payload = args[args.length - 1].toString();
-            ChatMessage chatMessage = Json.mapper().readValue(payload, ChatMessage.class);
-            if (chatMessage.getWsStatus().equals(ChatWebSocketStatus.CHAT)) {
-                logger.info(template, args);
-            }
-        } catch (JsonProcessingException e) {
-            logger.warn("[WS_LOGGING_FAILED] | reason=Invalid payload while logging", e);
         }
     }
 }

@@ -37,13 +37,9 @@ import java.util.stream.Collectors;
 public class ContactServiceImpl implements ContactService {
     private static final Logger logger = LoggerFactory.getLogger(ContactServiceImpl.class);
     private final ContactRepository contactRepository;
-
     private final UserService userService;
-
     private final CacheManager cacheManager;
-
     private final EmailService emailService;
-
     private final ExecutorService taskExecutor;
 
     public ContactServiceImpl(ContactRepository contactRepository, UserService userService, CacheManager cacheManager, EmailService emailService, ExecutorService taskExecutor) {
@@ -57,11 +53,8 @@ public class ContactServiceImpl implements ContactService {
     @Override
     @Cacheable(value = "contactListCache", key = "#userId", unless = "#result == null || #result.isEmpty()")
     public List<ContactDTO> getContactsByUserId(String userId) {
-        logger.info("Fetching contacts for userId: {}", userId);
         List<Contact> contactList = contactRepository.findAllByUserId(userId.trim());
-        logger.info("Returning {} Contact for userId {}", contactList.size(), userId);
         return contactList.stream().filter(Objects::nonNull).map(Mapper::mapToContactDTO).collect(Collectors.toList());
-
     }
 
     @Override
@@ -69,22 +62,20 @@ public class ContactServiceImpl implements ContactService {
     public List<ContactUserDTO> getContacts(String userId) {
         String validId = InputSecurityUtils.secureId(userId);
         if (validId != null && !validId.isEmpty()) {
-            logger.info("Fetching contacts for userId: {}", userId);
             return contactRepository.findContactUserDetailsByUserId(userId.trim());
         } else {
-            logger.info("Fetching all contacts with user mapping");
             return contactRepository.findAllContactsWithUserDetails();
         }
     }
 
     @Override
-    @Caching(evict = {@CacheEvict(value = "contactCache", key = "#contactId",beforeInvocation = true)})
+    @Caching(evict = {@CacheEvict(value = "contactCache", key = "#contactId", beforeInvocation = true)})
     public void deleteContact(String contactId) {
-        logger.info("Attempting to delete contact with ID: {}", contactId);
         String validId = InputSecurityUtils.secureId(contactId);
         Optional<Contact> contactOpt = contactRepository.findById(validId);
+
         if (contactOpt.isEmpty()) {
-            logger.warn("No contact found with ID: {}", contactId);
+            logger.warn("Delete failed - no contact found with ID: {}", contactId);
             throw new ServiceException("Contact not found for given contact id", HttpStatus.NOT_FOUND);
         }
 
@@ -92,44 +83,37 @@ public class ContactServiceImpl implements ContactService {
         String userId = contact.getUserId();
         contactRepository.delete(contact);
 
-        // manual eviction using local variable
         Cache cache = cacheManager.getCache("contactListCache");
         if (cache != null) {
-            cache.evict(userId);           // Evict user-specific contacts
-            cache.evict("ALL_CONTACTS");   // Evict the global list
+            cache.evict(userId);
+            cache.evict("ALL_CONTACTS");
         }
-        logger.info("Contact with ID {} deleted successfully", contactId);
+        logger.info("Contact deleted successfully: {}", contactId);
     }
 
     @Override
-    @Caching(evict = {
-            @CacheEvict(value = "contactListCache", key = "#dto.userId", condition = "#dto != null",beforeInvocation = true),
-            @CacheEvict(value = "contactListCache", key = "'ALL_CONTACTS'",beforeInvocation = true)},
-            put = {@CachePut(value = "contactCache", key = "#result.id", unless = "#result == null")})
+    @Caching(evict = {@CacheEvict(value = "contactListCache", key = "#dto.userId", condition = "#dto != null", beforeInvocation = true), @CacheEvict(value = "contactListCache", key = "'ALL_CONTACTS'", beforeInvocation = true)}, put = {@CachePut(value = "contactCache", key = "#result.id", unless = "#result == null")})
     public ContactDTO addContact(ContactDTO dto) {
         ContactDTO validDTO = InputValidationAndSanitizationService.validateAndSanitize(dto);
         String userId = validDTO.getUserId();
         String email = validDTO.getEmail();
-        logger.info("Contact add request for userId={} by email={}", userId, email);
+
+        logger.info("Processing addContact request for userId={} with email={}", userId, email);
 
         try {
-            // Check if user exists for the given email
             UserDTO existingUser = userService.getUserByPhoneNumberOrEmail(email);
 
-            // Prevent adding self as contact
             if (existingUser.getId().equals(userId)) {
                 throw new ServiceException("You cannot add yourself as a contact", HttpStatus.BAD_REQUEST);
             }
 
-            // Prevent duplicate contact
             if (contactExists(userId, existingUser.getId())) {
                 throw new ServiceException("Contact already exists for this user", HttpStatus.BAD_REQUEST);
             }
 
-            // Registered user flow
             ContactDTO contactDTO = new ContactDTO();
             contactDTO.setUserId(userId);
-            contactDTO.setContactUserId(existingUser.getId());//contact userid setting
+            contactDTO.setContactUserId(existingUser.getId());
             contactDTO.setContactStatus(ContactStatus.ADDED);
             contactDTO.setEmailStatus(EmailStatus.NOT_APPLICABLE);
             contactDTO.setEmail(email);
@@ -138,7 +122,6 @@ public class ContactServiceImpl implements ContactService {
 
         } catch (ServiceException ex) {
             if (ex.getStatus() == HttpStatus.NOT_FOUND) {
-                // Invite flow
                 return handleInviteFlow(userId, email);
             }
             throw ex;
@@ -146,22 +129,20 @@ public class ContactServiceImpl implements ContactService {
     }
 
     private ContactDTO handleInviteFlow(String userId, String email) {
-        logger.info("No registered user found for email={}, sending invite...", email);
+        logger.info("Inviting unregistered email={} on behalf of userId={}", email, userId);
 
-        // Save contact first
         ContactDTO contactDTO = new ContactDTO();
         contactDTO.setUserId(userId);
-        contactDTO.setContactUserId(null);//contact user id is null for invite
+        contactDTO.setContactUserId(null);
         contactDTO.setContactStatus(ContactStatus.INVITED);
         contactDTO.setEmailStatus(EmailStatus.PENDING);
         contactDTO.setEmail(email);
         ContactDTO savedContact = saveContact(contactDTO);
 
-        // Send invite asynchronously
         CompletableFuture.runAsync(() -> {
             boolean sent = emailService.sendEmail(new EmailDTO(email, "You're invited to join ChatApp!", "Hi there!\n\nYou've been invited to join ChatApp. " + "Click here to register:\nhttps://yourapp.com/register"));
             updateEmailStatus(savedContact.getId(), sent ? EmailStatus.SENT : EmailStatus.FAILED);
-        }, taskExecutor);//use our thread pool not fork join pool
+        }, taskExecutor);
 
         return savedContact;
     }
@@ -173,22 +154,21 @@ public class ContactServiceImpl implements ContactService {
     private void updateEmailStatus(String contactId, EmailStatus status) {
         contactRepository.findById(contactId).ifPresent(contact -> {
             contact.setEmailStatus(status);
-            //contact.setContactStatus(ContactStatus.ADDED);
             contactRepository.save(contact);
         });
     }
 
     private ContactDTO saveContact(ContactDTO contactDTO) {
         try {
-            logger.info("Saving contact for userId: {}", contactDTO.getUserId());
             Contact contactEntity = Mapper.mapToContactEntity(contactDTO);
             Contact saved = contactRepository.save(contactEntity);
+            logger.info("Contact saved successfully for userId={}", contactDTO.getUserId());
             return Mapper.mapToContactDTO(saved);
 
         } catch (Exception ex) {
-            logger.error("Error while saving contact: {}", ex.getMessage());
+            logger.error("Failed to save contact for userId={}, reason={}", contactDTO.getUserId(), ex.getMessage(), ex);
             throw new ServiceException("Failed to save contact", HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
-
 }
+

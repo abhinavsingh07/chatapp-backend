@@ -38,10 +38,10 @@ public class RedisConfig {
      */
     @Bean
     public CacheManager cacheManager(RedisConnectionFactory connectionFactory) {
-        logger.info("Creating Redis CacheManager with custom default configuration.");
+        logger.info("Initializing Redis CacheManager with default configuration.");
         return RedisCacheManager
                 .builder(connectionFactory)
-                .cacheDefaults(redisCacheConfiguration()) // after defining the default cache configuration
+                .cacheDefaults(redisCacheConfiguration())
                 .build();
     }
 
@@ -50,7 +50,9 @@ public class RedisConfig {
      */
     @Bean
     public RedisCacheConfiguration redisCacheConfiguration() {
-        logger.debug("Defining default RedisCacheConfiguration with TTL of 5 minutes and JSON serialization.");
+        if (logger.isDebugEnabled()) {
+            logger.debug("Configuring RedisCacheConfiguration with TTL=5 minutes and JSON serialization.");
+        }
         return RedisCacheConfiguration
                 .defaultCacheConfig()
                 .entryTtl(Duration.ofMinutes(5)) // TTL for cache entries
@@ -65,11 +67,10 @@ public class RedisConfig {
      */
     @Bean
     public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory connectionFactory) {
-        logger.info("Creating custom RedisTemplate with JSON value serializer.");
+        logger.info("Creating RedisTemplate with JSON value serializer.");
         RedisTemplate<String, Object> template = new RedisTemplate<>();
         template.setConnectionFactory(connectionFactory);
 
-        // Use same serializer as cache for consistency
         GenericJackson2JsonRedisSerializer serializer = new GenericJackson2JsonRedisSerializer();
         template.setKeySerializer(new StringRedisSerializer());
         template.setValueSerializer(serializer);
@@ -77,7 +78,9 @@ public class RedisConfig {
         template.setHashValueSerializer(serializer);
 
         template.afterPropertiesSet();
-        logger.debug("RedisTemplate initialized with String key serializer and JSON value serializer.");
+        if (logger.isDebugEnabled()) {
+            logger.debug("RedisTemplate initialized with String key serializer and JSON value serializer.");
+        }
         return template;
     }
 
@@ -86,23 +89,24 @@ public class RedisConfig {
         return new CacheErrorHandler() {
             @Override
             public void handleCacheGetError(RuntimeException exception, Cache cache, Object key) {
-                logger.error("Cache GET error for key {} in cache {}: {}", key, cache.getName(), exception.getMessage(), exception);
+                logger.error("Cache GET error for key={} in cache={}: {}", key, cache.getName(), exception.getMessage(), exception);
             }
 
             @Override
             public void handleCachePutError(RuntimeException exception, Cache cache, Object key, Object value) {
-                logger.error("Cache PUT error for key {} in cache {}: {}", key, cache.getName(), exception.getMessage(), exception);
+                logger.error("Cache PUT error for key={} in cache={}: {}", key, cache.getName(), exception.getMessage(), exception);
             }
 
             @Override
             public void handleCacheEvictError(RuntimeException exception, Cache cache, Object key) {
-                logger.error("Cache EVICT error for key {} in cache {}: {}", key, cache.getName(), exception.getMessage(), exception);
+                logger.error("Cache EVICT error for key={} in cache={}: {}", key, cache.getName(), exception.getMessage(), exception);
             }
 
             @Override
             public void handleCacheClearError(RuntimeException exception, Cache cache) {
-                logger.error("Cache CLEAR error in cache {}: {}", cache.getName(), exception.getMessage(), exception);
+                logger.error("Cache CLEAR error in cache={}: {}", cache.getName(), exception.getMessage(), exception);
             }
         };
     }
 }
+

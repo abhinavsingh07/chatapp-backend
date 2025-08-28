@@ -24,29 +24,31 @@ public class MessageController {
 
     @GetMapping("/conversation/{conversationId}")
     public ResponseEntity<SuccessResponse<MessageDTO>> getMessagesByConversationId(@PathVariable String conversationId) {
-        logger.info("Fetching messages for conversation: {}", conversationId);
+        logger.debug("Fetching messages for conversation: {}", conversationId);
         List<MessageDTO> messages = messageService.getMessagesByConversationId(conversationId);
         return ResponseEntity.ok(new SuccessResponse<>("200", "Messages fetched successfully", messages));
     }
 
     @GetMapping("/unread/{conversationId}/{receiverId}")
     public ResponseEntity<SuccessResponse<MessageDTO>> getUnreadMessages(@PathVariable("conversationId") String conversationId, @PathVariable("receiverId") String receiverId) {
-        logger.info("Fetching unread messages for receiver: {}", receiverId);
+
+        logger.debug("Fetching unread messages for receiver: {} in conversation: {}", receiverId, conversationId);
         List<MessageDTO> messages = messageService.getUnreadMessagesForReceiver(conversationId, receiverId);
         return ResponseEntity.ok(new SuccessResponse<>("200", "Unread messages fetched", messages));
     }
 
     @PostMapping("/create")
-    public ResponseEntity<SuccessResponse<MessageDTO>> sendMessage(@Valid @RequestBody MessageDTO messageDTO) {
-        logger.info("Sending new message");
+    public ResponseEntity<SuccessResponse<MessageDTO>> saveMessage(@Valid @RequestBody MessageDTO messageDTO) {
+        logger.info("New message send request for conversationId: {}", messageDTO.getConversationId());
         MessageDTO saved = messageService.saveMessage(messageDTO);
         return ResponseEntity.ok(new SuccessResponse<>("200", "Message sent successfully", List.of(saved)));
     }
 
     @PutMapping("/read/{id}")
     public ResponseEntity<SuccessResponse<Void>> markMessageAsRead(@PathVariable String id) {
-        logger.info("Marking message as read with ID: {}", id);
+        logger.debug("Marking message as read with ID: {}", id);
         messageService.markMessageAsRead(id);
         return ResponseEntity.ok(new SuccessResponse<>("200", "Message marked as read", Collections.emptyList()));
     }
 }
+

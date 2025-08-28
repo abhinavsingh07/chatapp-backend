@@ -29,7 +29,7 @@ public class RedisSessionStore {
         map.put("sessionId", wsSessionId);
 
         redisTemplate.opsForHash().putAll(redisLookupKey, map);//"user:{userId}" → { serverId: "abc123", sessionId: "xyz789" }
-        logger.info("Saved session for userId={} with serverId={} and sessionId={}", userId, serverId, wsSessionId);
+        logger.debug("Saved session for userId={} with serverId={} and sessionId={}", userId, serverId, wsSessionId);
     }
 
     public Map<Object, Object> getUserSession(String userId) {
@@ -58,7 +58,7 @@ public class RedisSessionStore {
     public void deleteUserSession(String userId) {
         String redisLookupKey = ChatUtil.buildUserKey(userId);//"user:{userid}"
         redisTemplate.delete(redisLookupKey);
-        logger.info("Deleted session for userId={} with redisLookupKey={}", userId, redisLookupKey);
+        logger.debug("Deleted session for userId={} with redisLookupKey={}", userId, redisLookupKey);
     }
 
     public void updateLastActiveTimestamp(String userid){

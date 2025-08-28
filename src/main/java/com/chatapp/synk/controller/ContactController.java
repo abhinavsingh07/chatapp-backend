@@ -27,31 +27,36 @@ public class ContactController {
     @GetMapping("/search")
     public ResponseEntity<SuccessResponse<ContactUserDTO>> getContacts(@RequestParam(required = false) String userId) {
         logger.info("Fetching contacts for userId: {}", userId);
-        //search contact we can pass userid as query param otherwise fetch all contacts.
+
         List<ContactUserDTO> contactUserDTOList = contactService.getContacts(userId);
 
         if (contactUserDTOList.isEmpty()) {
             logger.warn("No contacts found for userId: {}", userId);
             return ResponseEntity.ok(new SuccessResponse<>("404", "No contacts found", Collections.emptyList()));
-        } else {
-            logger.info("Found {} contacts for userId: {}", contactUserDTOList.size(), userId);
-            return ResponseEntity.ok(new SuccessResponse<>("200", "Contacts fetched successfully", contactUserDTOList));
         }
+
+        logger.info("Found {} contacts for userId: {}", contactUserDTOList.size(), userId);
+        return ResponseEntity.ok(new SuccessResponse<>("200", "Contacts fetched successfully", contactUserDTOList));
     }
 
     @PostMapping
     public ResponseEntity<SuccessResponse<ContactDTO>> addContact(@Valid @RequestBody ContactDTO contactDTO) {
-        logger.info("Creating contact for given userid..");
+        logger.debug("Request received to add contact for userId: {}", contactDTO.getUserId());
+
         ContactDTO savedContact = contactService.addContact(contactDTO);
         String message = savedContact.getContactStatus() == ContactStatus.ADDED ? "Contact created successfully" : "Invitation sent successfully";
+
+        logger.info("Contact action [{}] completed for userId: {}", message, contactDTO.getUserId());
         return ResponseEntity.ok(new SuccessResponse<>("200", message, List.of(savedContact)));
     }
 
     @DeleteMapping("/{contactId}")
-    public ResponseEntity<SuccessResponse<String>> deleteContact(@PathVariable(required = true) String contactId) {
-        logger.info("Deleting contact with userId: {}", contactId);
+    public ResponseEntity<SuccessResponse<String>> deleteContact(@PathVariable String contactId) {
+        logger.info("Deleting contact with contactId: {}", contactId);
+
         contactService.deleteContact(contactId);
+
+        logger.info("Contact deleted successfully for contactId: {}", contactId);
         return ResponseEntity.ok(new SuccessResponse<>("200", "Contact deleted successfully", List.of()));
     }
-
 }
