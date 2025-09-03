@@ -2,15 +2,16 @@ package com.chatapp.synk.chat.redis;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.cache.Cache;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
-import org.springframework.cache.interceptor.CacheErrorHandler;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
 import org.springframework.data.redis.cache.RedisCacheManager;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
+import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
+import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
@@ -33,16 +34,27 @@ public class RedisConfig {
 
     private static final Logger logger = LoggerFactory.getLogger(RedisConfig.class);
 
+    @Value("${spring.redis.host}") // fallback to localhost if env variable not set
+    private String redisHost;
+
+    @Value("${spring.redis.port}")
+    private int redisPort;
+
+    /**
+     * Creates RedisConnectionFactory using host and port from environment variables.
+     */
+    @Bean
+    public LettuceConnectionFactory redisConnectionFactory() {
+        return new LettuceConnectionFactory(new RedisStandaloneConfiguration(redisHost, redisPort));
+    }
+
     /**
      * Creates a CacheManager bean that uses Redis as the caching provider.
      */
     @Bean
     public CacheManager cacheManager(RedisConnectionFactory connectionFactory) {
         logger.info("Initializing Redis CacheManager with default configuration.");
-        return RedisCacheManager
-                .builder(connectionFactory)
-                .cacheDefaults(redisCacheConfiguration())
-                .build();
+        return RedisCacheManager.builder(connectionFactory).cacheDefaults(redisCacheConfiguration()).build();
     }
 
     /**
@@ -55,11 +67,9 @@ public class RedisConfig {
         }
         return RedisCacheConfiguration
                 .defaultCacheConfig()
-                .entryTtl(Duration.ofMinutes(5)) // TTL for cache entries
+                .entryTtl(Duration.ofMinutes(5))
                 .disableCachingNullValues()
-                .serializeValuesWith(
-                        RedisSerializationContext.SerializationPair.fromSerializer(new GenericJackson2JsonRedisSerializer())
-                );
+                .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(new GenericJackson2JsonRedisSerializer()));
     }
 
     /**
@@ -82,31 +92,6 @@ public class RedisConfig {
             logger.debug("RedisTemplate initialized with String key serializer and JSON value serializer.");
         }
         return template;
-    }
-
-    @Bean
-    public CacheErrorHandler cacheErrorHandler() {
-        return new CacheErrorHandler() {
-            @Override
-            public void handleCacheGetError(RuntimeException exception, Cache cache, Object key) {
-                logger.error("Cache GET error for key={} in cache={}: {}", key, cache.getName(), exception.getMessage(), exception);
-            }
-
-            @Override
-            public void handleCachePutError(RuntimeException exception, Cache cache, Object key, Object value) {
-                logger.error("Cache PUT error for key={} in cache={}: {}", key, cache.getName(), exception.getMessage(), exception);
-            }
-
-            @Override
-            public void handleCacheEvictError(RuntimeException exception, Cache cache, Object key) {
-                logger.error("Cache EVICT error for key={} in cache={}: {}", key, cache.getName(), exception.getMessage(), exception);
-            }
-
-            @Override
-            public void handleCacheClearError(RuntimeException exception, Cache cache) {
-                logger.error("Cache CLEAR error in cache={}: {}", cache.getName(), exception.getMessage(), exception);
-            }
-        };
     }
 }
 
