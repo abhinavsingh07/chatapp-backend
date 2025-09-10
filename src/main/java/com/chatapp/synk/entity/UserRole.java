@@ -8,7 +8,7 @@ import jakarta.persistence.*;
 public class UserRole {
     public static final String ALIAS_USER_ROLE = "USRL";
     @Id
-    @Column(name = "id", nullable = false, length = 100)
+    @Column(name = "id", nullable = false, length = 50)
     private String id;
 
     @Enumerated(EnumType.STRING)

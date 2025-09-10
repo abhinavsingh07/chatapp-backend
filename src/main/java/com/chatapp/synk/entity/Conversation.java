@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 public class Conversation {
     public static final String ALIAS_CONVERSATION = "CONV";
     @Id
-    @Column(name = "id", nullable = false,length = 100)
+    @Column(name = "id", nullable = false,length = 50)
     private String id;
 
     @Column(name = "conversation_type",length = 10)

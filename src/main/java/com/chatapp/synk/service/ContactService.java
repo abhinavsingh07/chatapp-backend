@@ -13,4 +13,6 @@ public interface ContactService {
     public List<ContactUserDTO> getContacts(String userId);
 
     void deleteContact(String contactId);
+
+    boolean isMutualContact(String userAId, String userBId);
 }

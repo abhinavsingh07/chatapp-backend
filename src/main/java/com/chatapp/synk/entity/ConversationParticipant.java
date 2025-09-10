@@ -9,13 +9,13 @@ import java.time.LocalDateTime;
 public class ConversationParticipant {
     public static final String ALIAS_PARTICIPANT = "PART";
     @Id
-    @Column(name = "id", nullable = false)
+    @Column(name = "id", nullable = false,length = 50)
     private String id;
 
-    @Column(name = "conversation_id", nullable = false)
+    @Column(name = "conversation_id", nullable = false,length = 50)
     private String conversationId;
 
-    @Column(name = "user_id", nullable = false)
+    @Column(name = "user_id", nullable = false,length = 50)
     private String userId;
 
     @Column(name = "created_at", updatable = false)

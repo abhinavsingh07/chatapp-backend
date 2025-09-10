@@ -91,7 +91,7 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
                         logger.debug("[WS_HEARTBEAT] | userId={} sessionId={}", userId, sessionId);
                         return;
                     } else if (ChatWebSocketStatus.CHAT.equals(chatMessage.getWsStatus())) {
-                        chatMessage.setSentAt(Instant.now().toString());
+                        chatMessage.setSentAt(Instant.now().toString());//other user will see this time when message arrive to them.
                         chatMessage.setFromUserId(userId);
                     }
 

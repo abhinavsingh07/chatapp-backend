@@ -81,14 +81,49 @@ public class ContactServiceImpl implements ContactService {
 
         Contact contact = contactOpt.get();
         String userId = contact.getUserId();
+        String contactUserId = contact.getContactUserId();
+
+        // delete from DB
         contactRepository.delete(contact);
 
-        Cache cache = cacheManager.getCache("contactListCache");
-        if (cache != null) {
-            cache.evict(userId);
-            cache.evict("ALL_CONTACTS");
+        // Evict related user caches
+        Cache contactListCache = cacheManager.getCache("contactListCache");
+        if (contactListCache != null) {
+            contactListCache.evict(userId);
+            contactListCache.evict("ALL_CONTACTS");
         }
+
+        // Evict mutual contact caches for both directions
+        Cache mutualCache = cacheManager.getCache("mutualContacts");
+        if (mutualCache != null) {
+            String keyAB = userId + "_" + contactUserId;
+            String keyBA = contactUserId + "_" + userId;
+            mutualCache.evict(keyAB);
+            mutualCache.evict(keyBA);
+            logger.debug("Evicted mutual contact cache entries: [{}] and [{}]", keyAB, keyBA);
+        }
+
         logger.info("Contact deleted successfully: {}", contactId);
+    }
+
+
+    @Override
+    @Cacheable(value = "mutualContacts", key = "#userAId + '_' + #userBId")
+    public boolean isMutualContact(String userAId, String userBId) {
+        String validuserAId = InputSecurityUtils.secureId(userAId);
+        String validuserBId = InputSecurityUtils.secureId(userBId);
+        logger.debug("Checking mutual contact status between [{}] and [{}]", validuserAId, validuserAId);
+
+        boolean aToB = contactRepository.existsByUserIdAndContactUserIdAndContactStatus(validuserAId, validuserAId, ContactStatus.ADDED);
+        logger.trace("Contact check: [{} -> {}] = {}", validuserAId, validuserAId, aToB);
+
+        boolean bToA = contactRepository.existsByUserIdAndContactUserIdAndContactStatus(validuserAId, validuserAId, ContactStatus.ADDED);
+        logger.trace("Contact check: [{} -> {}] = {}", validuserAId, validuserAId, bToA);
+
+        boolean mutual = aToB && bToA;
+        logger.debug("Mutual contact result between [{}] and [{}] = {}", validuserAId, validuserAId, mutual);
+
+        return mutual;
     }
 
     @Override

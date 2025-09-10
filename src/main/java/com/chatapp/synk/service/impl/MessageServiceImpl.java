@@ -1,11 +1,12 @@
 package com.chatapp.synk.service.impl;
 
-import com.chatapp.synk.security_validator.InputSecurityUtils;
-import com.chatapp.synk.security_validator.InputValidationAndSanitizationService;
 import com.chatapp.synk.dto.MessageDTO;
 import com.chatapp.synk.entity.Message;
 import com.chatapp.synk.exceptionHandler.ServiceException;
 import com.chatapp.synk.repository.MessageRepository;
+import com.chatapp.synk.security_validator.InputSecurityUtils;
+import com.chatapp.synk.security_validator.InputValidationAndSanitizationService;
+import com.chatapp.synk.service.ConversationLastMessageService;
 import com.chatapp.synk.service.MessageService;
 import com.chatapp.synk.util.Mapper;
 import jakarta.transaction.Transactional;
@@ -23,35 +24,35 @@ public class MessageServiceImpl implements MessageService {
     private static final Logger logger = LoggerFactory.getLogger(MessageServiceImpl.class);
     private final MessageRepository messageRepository;
 
-    public MessageServiceImpl(MessageRepository messageRepository) {
+    private final ConversationLastMessageService conversationLastMessageService;
+
+    public MessageServiceImpl(MessageRepository messageRepository, ConversationLastMessageService conversationLastMessageService) {
         this.messageRepository = messageRepository;
+        this.conversationLastMessageService = conversationLastMessageService;
     }
 
     @Override
     public List<MessageDTO> getMessagesByConversationId(String conversationId) {
         String validId = InputSecurityUtils.secureId(conversationId);
-        return messageRepository.findByConversationIdOrderBySentAtAsc(validId)
-                .stream()
-                .map(Mapper::mapToMessageDTO)
-                .collect(Collectors.toList());
+        return messageRepository.findByConversationIdOrderBySentAtAsc(validId).stream().map(Mapper::mapToMessageDTO).collect(Collectors.toList());
     }
 
     @Override
     public List<MessageDTO> getUnreadMessagesForReceiver(String conversationId, String receiverId) {
         String receiverValidId = InputSecurityUtils.secureId(receiverId);
         String conversationValidId = InputSecurityUtils.secureId(conversationId);
-        return messageRepository.findByConversationIdAndReceiverId(conversationValidId, receiverValidId)
-                .stream()
-                .map(Mapper::mapToMessageDTO)
-                .collect(Collectors.toList());
+        return messageRepository.findByConversationIdAndReceiverId(conversationValidId, receiverValidId).stream().map(Mapper::mapToMessageDTO).collect(Collectors.toList());
     }
 
     @Override
+    @Transactional
     public MessageDTO saveMessage(MessageDTO messageDTO) {
         MessageDTO validDTO = InputValidationAndSanitizationService.validateAndSanitize(messageDTO);
         logger.info("Saving message from {} to {}", validDTO.getSenderId(), validDTO.getReceiverId());
         Message message = Mapper.mapToMessageEntity(validDTO);
         Message saved = messageRepository.save(message);
+        //upserting last message
+        conversationLastMessageService.upsertLastMessage(saved.getConversationId(), saved.getId(), saved.getSenderId(), saved.getContent());
         logger.info("Message saved with ID: {}", saved.getId());
         return Mapper.mapToMessageDTO(saved);
     }
@@ -60,11 +61,10 @@ public class MessageServiceImpl implements MessageService {
     @Transactional
     public void markMessageAsRead(String messageId) {
         String validId = InputSecurityUtils.secureId(messageId);
-        Message message = messageRepository.findById(validId)
-                .orElseThrow(() -> {
-                    logger.warn("Message not found with ID: {}", validId);
-                    return new ServiceException("Message not found", HttpStatus.NOT_FOUND);
-                });
+        Message message = messageRepository.findById(validId).orElseThrow(() -> {
+            logger.warn("Message not found with ID: {}", validId);
+            return new ServiceException("Message not found", HttpStatus.NOT_FOUND);
+        });
         //message.setIsRead(true);
         messageRepository.save(message);
         logger.info("Message marked as read. ID: {}", validId);

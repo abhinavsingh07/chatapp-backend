@@ -35,12 +35,11 @@ public class Message {
     private MessageStatus messageStatus = MessageStatus.SENT;
 
     @Column(name = "sent_at", nullable = false, updatable = false)
-    private Instant sentAt;//Instant is UTC time without timezone client converts this time on their browser or mobile sdk and get its time according to it timezone
+    private Instant sentAt;//Instant is UTC time client converts this time on their browser or mobile sdk and get its time according to it timezone
 
     @PrePersist
     protected void onCreate() {
         sentAt = Instant.now(); // Always UTC
-        System.out.println("Message Entity pre persist*****"+sentAt);
     }
 
     // Getters & Setters

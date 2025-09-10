@@ -11,10 +11,10 @@ import java.time.LocalDateTime;
 public class Contact {
     public static final String ALIAS_CONTACT = "CONT";
     @Id
-    @Column(name = "id", nullable = false, length = 100)
+    @Column(name = "id", nullable = false, length = 50)
     private String id;
 
-    @Column(name = "user_id", nullable = false, length = 100)
+    @Column(name = "user_id", nullable = false, length = 50)
     private String userId;
 
     @Column(name = "contact_user_id", length = 100)

@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
 public class User {
     public static final String ALIAS_USER = "USER";
     @Id
-    @Column(name = "id", nullable = false, length = 100)
+    @Column(name = "id", nullable = false, length = 50)
     private String id;
 
     @Column(name = "phone_number", length = 15)

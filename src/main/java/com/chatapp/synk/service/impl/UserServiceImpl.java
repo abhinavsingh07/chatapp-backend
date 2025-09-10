@@ -209,7 +209,7 @@ public class UserServiceImpl implements UserService {
         for (String uid : userIds) {
             String lastActive = redisSessionStore.getLastActiveTimeStampUser(uid);
             if (lastActive != null) {
-                boolean online = (now - Long.parseLong(lastActive)) <= 3000;// 3 seconds if user is offline
+                boolean online = (now - Long.parseLong(lastActive)) <= 15000;// 3 seconds if user is offline
                 result.add(new UserStatusDTO(uid, online, lastActive));
             }
         }
