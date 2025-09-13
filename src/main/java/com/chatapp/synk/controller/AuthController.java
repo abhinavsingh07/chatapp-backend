@@ -56,6 +56,7 @@ public class AuthController {
         claims.put("roles", user.getAuthorities().stream().map(authObj -> authObj.getAuthority()).collect(Collectors.toList()));
         claims.put("id", user.getId());
         claims.put("email", user.getEmail());
+        claims.put("name", user.getName());
 
         String token = jwtUtil.generateToken(claims, user.getUsername());
 

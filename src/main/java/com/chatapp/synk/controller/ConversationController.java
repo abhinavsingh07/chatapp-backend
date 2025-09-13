@@ -1,7 +1,7 @@
 package com.chatapp.synk.controller;
 
-import com.chatapp.synk.dto.ChatListDTO;
 import com.chatapp.synk.dto.ConversationDTO;
+import com.chatapp.synk.dto.ConversationLastMsgDTO;
 import com.chatapp.synk.response.SuccessResponse;
 import com.chatapp.synk.service.ConversationLastMessageService;
 import com.chatapp.synk.service.ConversationService;
@@ -81,11 +81,11 @@ public class ConversationController {
         return ResponseEntity.ok(new SuccessResponse<>("200", "Conversation found/created successfully", List.of(conversationId)));
     }
 
-    @GetMapping("/{userId}/chat-list")
-    public ResponseEntity<SuccessResponse<ChatListDTO>> getUserChatList(@PathVariable String userId) {
+    @GetMapping("/{userId}/last-message")
+    public ResponseEntity<SuccessResponse<ConversationLastMsgDTO>> getUserConversationsLastMessage(@PathVariable String userId) {
         logger.debug("Fetching chat list for userId={}", userId);
 
-        List<ChatListDTO> chatList = conversationLastMessageService.findUserConversations(userId);
+        List<ConversationLastMsgDTO> chatList = conversationLastMessageService.findUserConversations(userId);
 
         if (chatList.isEmpty()) {
             logger.warn("No conversations found for userId={}", userId);

@@ -23,15 +23,9 @@ public class ConversationLastMessage {
     //LocalDateTime is DATETIME data type in db
     private Instant updatedAt;
 
-    @PrePersist
-    protected void onCreate() {
-        sentAt = Instant.now(); // Always UTC
-    }
-
     @PreUpdate
     protected void onUpdate() {
         updatedAt = Instant.now();
-        sentAt = Instant.now(); // Always UTC
     }
 
 

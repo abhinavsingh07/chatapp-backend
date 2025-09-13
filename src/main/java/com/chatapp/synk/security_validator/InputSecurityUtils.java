@@ -91,6 +91,16 @@ public class InputSecurityUtils {
         return UserInputSanitizer.sanitizeUrl(url);
     }
 
+    public static String secureMessage(String message) {
+        if (message == null) return null;
+
+        // Validation: check length and whether empty text allowed
+        checkField(message, 1000, true, "message"); // max length = 1000 chars, change if needed
+
+        // Sanitization: remove dangerous chars / patterns
+        return UserInputSanitizer.sanitizeText(message);
+    }
+
     /**
      * Reusable security risk checker
      */
@@ -100,4 +110,5 @@ public class InputSecurityUtils {
             throw new SecurityException(fieldName + " validation failed: " + result.getReason());
         }
     }
+
 }

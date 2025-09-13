@@ -76,7 +76,7 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
 
     @Override
     public void handleTextMessage(WebSocketSession wsSession, TextMessage message) throws Exception {
-        String userId = (String) wsSession.getAttributes().get("userId");
+        String userId = (String) wsSession.getAttributes().get("userId");//setting in WebSocketAuthHandshakeInterceptor
         String sessionId = wsSession.getId();
         String payload = message.getPayload();
 
