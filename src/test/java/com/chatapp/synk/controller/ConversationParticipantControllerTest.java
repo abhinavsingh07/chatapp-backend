@@ -14,7 +14,8 @@ import org.springframework.http.ResponseEntity;
 import java.util.Collections;
 import java.util.List;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -24,81 +25,130 @@ class ConversationParticipantControllerTest {
     private ConversationParticipantService participantService;
 
     @InjectMocks
-    private ConversationParticipantController controller;
+    private ConversationParticipantController participantController;
 
-    private ConversationParticipantDTO sampleDto;
+    private ConversationParticipantDTO mockParticipantDTO;
 
     @BeforeEach
     void setUp() {
-        sampleDto = new ConversationParticipantDTO();
-        sampleDto.setId("p1");
-        sampleDto.setConversationId("c1");
+        mockParticipantDTO = new ConversationParticipantDTO();
+        mockParticipantDTO.setId("participant1");
+        mockParticipantDTO.setConversationId("convo123");
+        mockParticipantDTO.setUserId("user1");
     }
 
     @Test
-    void testAddParticipant() {
-        when(participantService.addParticipant(sampleDto)).thenReturn(sampleDto);
+    void testAdd_Success() {
+        // Arrange
+        when(participantService.addParticipant(any(ConversationParticipantDTO.class)))
+            .thenReturn(mockParticipantDTO);
 
-        ResponseEntity<SuccessResponse<ConversationParticipantDTO>> response = controller.add(sampleDto);
+        // Act
+        ResponseEntity<SuccessResponse<ConversationParticipantDTO>> response =
+            participantController.add(mockParticipantDTO);
 
-        assertThat(response.getBody().getResponseCode()).isEqualTo("201");
-        assertThat(response.getBody().getData()).contains(sampleDto);
-        verify(participantService).addParticipant(sampleDto);
+        // Assert
+        assertNotNull(response.getBody());
+        assertTrue(response.getStatusCode().is2xxSuccessful());
+        assertEquals("201", response.getBody().getResponseCode());
+        assertEquals("Participant added", response.getBody().getMessage());
+        assertEquals(1, response.getBody().getData().size());
+        assertEquals("participant1", response.getBody().getData().get(0).getId());
+        verify(participantService, times(1)).addParticipant(any(ConversationParticipantDTO.class));
     }
 
     @Test
-    void testGetById_found() {
-        when(participantService.getParticipantById("p1")).thenReturn(sampleDto);
+    void testGetById_WhenParticipantFound() {
+        // Arrange
+        when(participantService.getParticipantById("participant1"))
+            .thenReturn(mockParticipantDTO);
 
-        ResponseEntity<SuccessResponse<ConversationParticipantDTO>> response = controller.getById("p1");
+        // Act
+        ResponseEntity<SuccessResponse<ConversationParticipantDTO>> response =
+            participantController.getById("participant1");
 
-        assertThat(response.getBody().getResponseCode()).isEqualTo("200");
-        assertThat(response.getBody().getData()).contains(sampleDto);
-        verify(participantService).getParticipantById("p1");
+        // Assert
+        assertNotNull(response.getBody());
+        assertTrue(response.getStatusCode().is2xxSuccessful());
+        assertEquals("200", response.getBody().getResponseCode());
+        assertEquals("Participant found", response.getBody().getMessage());
+        assertEquals(1, response.getBody().getData().size());
+        assertEquals("participant1", response.getBody().getData().get(0).getId());
+        verify(participantService, times(1)).getParticipantById("participant1");
     }
 
     @Test
-    void testGetById_notFound() {
-        when(participantService.getParticipantById("p2")).thenReturn(null);
+    void testGetById_WhenParticipantNotFound() {
+        // Arrange
+        when(participantService.getParticipantById("nonexistent"))
+            .thenReturn(null);
 
-        ResponseEntity<SuccessResponse<ConversationParticipantDTO>> response = controller.getById("p2");
+        // Act
+        ResponseEntity<SuccessResponse<ConversationParticipantDTO>> response =
+            participantController.getById("nonexistent");
 
-        assertThat(response.getBody().getResponseCode()).isEqualTo("404");
-        assertThat(response.getBody().getData()).isEmpty();
-        verify(participantService).getParticipantById("p2");
+        // Assert
+        assertNotNull(response.getBody());
+        assertTrue(response.getStatusCode().is2xxSuccessful());
+        assertEquals("404", response.getBody().getResponseCode());
+        assertEquals("Participant not found", response.getBody().getMessage());
+        assertTrue(response.getBody().getData().isEmpty());
+        verify(participantService, times(1)).getParticipantById("nonexistent");
     }
 
     @Test
-    void testGetByConversation_found() {
-        when(participantService.getParticipantsByConversationId("c1"))
-                .thenReturn(List.of(sampleDto));
+    void testGetByConversation_WhenParticipantsFound() {
+        // Arrange
+        when(participantService.getParticipantsByConversationId("convo123"))
+            .thenReturn(List.of(mockParticipantDTO));
 
-        ResponseEntity<SuccessResponse<ConversationParticipantDTO>> response = controller.getByConversation("c1");
+        // Act
+        ResponseEntity<SuccessResponse<ConversationParticipantDTO>> response =
+            participantController.getByConversation("convo123");
 
-        assertThat(response.getBody().getResponseCode()).isEqualTo("200");
-        assertThat(response.getBody().getData()).contains(sampleDto);
-        verify(participantService).getParticipantsByConversationId("c1");
+        // Assert
+        assertNotNull(response.getBody());
+        assertTrue(response.getStatusCode().is2xxSuccessful());
+        assertEquals("200", response.getBody().getResponseCode());
+        assertEquals("Participants retrieved", response.getBody().getMessage());
+        assertEquals(1, response.getBody().getData().size());
+        verify(participantService, times(1)).getParticipantsByConversationId("convo123");
     }
 
     @Test
-    void testGetByConversation_notFound() {
-        when(participantService.getParticipantsByConversationId("c2"))
-                .thenReturn(Collections.emptyList());
+    void testGetByConversation_WhenNoParticipantsFound() {
+        // Arrange
+        when(participantService.getParticipantsByConversationId("convo999"))
+            .thenReturn(Collections.emptyList());
 
-        ResponseEntity<SuccessResponse<ConversationParticipantDTO>> response = controller.getByConversation("c2");
+        // Act
+        ResponseEntity<SuccessResponse<ConversationParticipantDTO>> response =
+            participantController.getByConversation("convo999");
 
-        assertThat(response.getBody().getResponseCode()).isEqualTo("404");
-        assertThat(response.getBody().getData()).isEmpty();
-        verify(participantService).getParticipantsByConversationId("c2");
+        // Assert
+        assertNotNull(response.getBody());
+        assertTrue(response.getStatusCode().is2xxSuccessful());
+        assertEquals("404", response.getBody().getResponseCode());
+        assertEquals("No participants found", response.getBody().getMessage());
+        assertTrue(response.getBody().getData().isEmpty());
+        verify(participantService, times(1)).getParticipantsByConversationId("convo999");
     }
 
     @Test
-    void testDelete() {
-        doNothing().when(participantService).deleteByConversationid("p1");
+    void testDelete_Success() {
+        // Arrange
+        doNothing().when(participantService).deleteByConversationid("participant1");
 
-        ResponseEntity<SuccessResponse<Void>> response = controller.delete("p1");
+        // Act
+        ResponseEntity<SuccessResponse<Void>> response =
+            participantController.delete("participant1");
 
-        assertThat(response.getBody().getResponseCode()).isEqualTo("200");
-        verify(participantService).deleteByConversationid("p1");
+        // Assert
+        assertNotNull(response.getBody());
+        assertTrue(response.getStatusCode().is2xxSuccessful());
+        assertEquals("200", response.getBody().getResponseCode());
+        assertEquals("Participant removed", response.getBody().getMessage());
+        assertTrue(response.getBody().getData().isEmpty());
+        verify(participantService, times(1)).deleteByConversationid("participant1");
     }
 }

@@ -5,6 +5,7 @@ import com.chatapp.synk.dto.ContactUserDTO;
 import com.chatapp.synk.enums.ContactStatus;
 import com.chatapp.synk.response.SuccessResponse;
 import com.chatapp.synk.service.ContactService;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -15,104 +16,114 @@ import org.springframework.http.ResponseEntity;
 import java.util.Collections;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class ContactControllerTest {
 
-    @InjectMocks
-    private ContactController contactController;
-
     @Mock
     private ContactService contactService;
 
-    @Test
-    void testGetContacts_Found() {
-        // Arrange
-        String userId = "123";
-        ContactUserDTO contactUser = new ContactUserDTO();
-        contactUser.setContactId("1");
-        contactUser.setName("Alice");
+    @InjectMocks
+    private ContactController contactController;
 
-        when(contactService.getContacts(userId)).thenReturn(List.of(contactUser));
+    private ContactDTO mockContactDTO;
+    private ContactUserDTO mockContactUserDTO;
+
+    @BeforeEach
+    void setUp() {
+        mockContactDTO = new ContactDTO();
+        mockContactDTO.setId("1");
+        mockContactDTO.setUserId("user1");
+        mockContactDTO.setContactUserId("user2");
+        mockContactDTO.setContactStatus(ContactStatus.ADDED);
+        mockContactDTO.setEmail("user2@example.com");
+
+        mockContactUserDTO = new ContactUserDTO();
+        mockContactUserDTO.setContactId("1");
+        mockContactUserDTO.setName("Alice Johnson");
+        mockContactUserDTO.setEmail("alice@example.com");
+    }
+
+    @Test
+    void testGetContacts_WhenContactsExist() {
+        // Arrange
+        String userId = "user1";
+        when(contactService.getContacts(userId)).thenReturn(List.of(mockContactUserDTO));
 
         // Act
         ResponseEntity<SuccessResponse<ContactUserDTO>> response = contactController.getContacts(userId);
 
         // Assert
-        assertEquals(200, response.getStatusCodeValue());
+        assertNotNull(response.getBody());
+        assertTrue(response.getStatusCode().is2xxSuccessful());
         assertEquals("200", response.getBody().getResponseCode());
+        assertEquals("Contacts fetched successfully", response.getBody().getMessage());
         assertEquals(1, response.getBody().getData().size());
-        assertEquals("Alice", response.getBody().getData().get(0).getName());
+        assertEquals("Alice Johnson", response.getBody().getData().get(0).getName());
+        verify(contactService, times(1)).getContacts(userId);
     }
 
     @Test
-    void testGetContacts_NotFound() {
+    void testGetContacts_WhenNoContactsFound() {
         // Arrange
-        String userId = "123";
+        String userId = "user1";
         when(contactService.getContacts(userId)).thenReturn(Collections.emptyList());
 
         // Act
         ResponseEntity<SuccessResponse<ContactUserDTO>> response = contactController.getContacts(userId);
 
         // Assert
-        assertEquals(200, response.getStatusCodeValue());
+        assertNotNull(response.getBody());
+        assertTrue(response.getStatusCode().is2xxSuccessful());
         assertEquals("404", response.getBody().getResponseCode());
         assertEquals("No contacts found", response.getBody().getMessage());
-        assertEquals(0, response.getBody().getData().size());
+        assertTrue(response.getBody().getData().isEmpty());
+        verify(contactService, times(1)).getContacts(userId);
     }
 
     @Test
-    void testAddContact_Added() {
+    void testAddContact_WhenContactStatusIsAdded() {
         // Arrange
-        ContactDTO inputContact = new ContactDTO();
-        inputContact.setId("1");
-        inputContact.setEmail("Bob");
-
-        ContactDTO savedContact = new ContactDTO();
-        savedContact.setId("1");
-        savedContact.setEmail("Bob");
-        savedContact.setContactStatus(ContactStatus.ADDED);
-
-        when(contactService.addContact(any(ContactDTO.class))).thenReturn(savedContact);
+        mockContactDTO.setContactStatus(ContactStatus.ADDED);
+        when(contactService.addContact(any(ContactDTO.class))).thenReturn(mockContactDTO);
 
         // Act
-        ResponseEntity<SuccessResponse<ContactDTO>> response = contactController.addContact(inputContact);
+        ResponseEntity<SuccessResponse<ContactDTO>> response = contactController.addContact(mockContactDTO);
 
         // Assert
-        assertEquals(200, response.getStatusCodeValue());
+        assertNotNull(response.getBody());
+        assertTrue(response.getStatusCode().is2xxSuccessful());
         assertEquals("200", response.getBody().getResponseCode());
         assertEquals("Contact created successfully", response.getBody().getMessage());
-        assertEquals("Bob", response.getBody().getData().get(0).getEmail());
+        assertEquals(1, response.getBody().getData().size());
+        assertEquals(ContactStatus.ADDED, response.getBody().getData().get(0).getContactStatus());
+        verify(contactService, times(1)).addContact(any(ContactDTO.class));
     }
 
     @Test
-    void testAddContact_Invited() {
+    void testAddContact_WhenContactStatusIsInvited() {
         // Arrange
-        ContactDTO inputContact = new ContactDTO();
-        inputContact.setId("2");
-        inputContact.setEmail("Charlie");
-
-        ContactDTO savedContact = new ContactDTO();
-        savedContact.setId("2");
-        savedContact.setEmail("Charlie");
-        savedContact.setContactStatus(ContactStatus.INVITED);
-
-        when(contactService.addContact(any(ContactDTO.class))).thenReturn(savedContact);
+        mockContactDTO.setContactStatus(ContactStatus.INVITED);
+        when(contactService.addContact(any(ContactDTO.class))).thenReturn(mockContactDTO);
 
         // Act
-        ResponseEntity<SuccessResponse<ContactDTO>> response = contactController.addContact(inputContact);
+        ResponseEntity<SuccessResponse<ContactDTO>> response = contactController.addContact(mockContactDTO);
 
         // Assert
-        assertEquals(200, response.getStatusCodeValue());
+        assertNotNull(response.getBody());
+        assertTrue(response.getStatusCode().is2xxSuccessful());
+        assertEquals("200", response.getBody().getResponseCode());
         assertEquals("Invitation sent successfully", response.getBody().getMessage());
+        assertEquals(1, response.getBody().getData().size());
+        assertEquals(ContactStatus.INVITED, response.getBody().getData().get(0).getContactStatus());
+        verify(contactService, times(1)).addContact(any(ContactDTO.class));
     }
 
     @Test
-    void testDeleteContact() {
+    void testDeleteContact_Success() {
         // Arrange
         String contactId = "1";
         doNothing().when(contactService).deleteContact(contactId);
@@ -121,8 +132,49 @@ class ContactControllerTest {
         ResponseEntity<SuccessResponse<String>> response = contactController.deleteContact(contactId);
 
         // Assert
-        assertEquals(200, response.getStatusCodeValue());
+        assertNotNull(response.getBody());
+        assertTrue(response.getStatusCode().is2xxSuccessful());
         assertEquals("200", response.getBody().getResponseCode());
         assertEquals("Contact deleted successfully", response.getBody().getMessage());
+        verify(contactService, times(1)).deleteContact(contactId);
+    }
+
+    @Test
+    void testIsMutualContact_WhenMutual() {
+        // Arrange
+        String userA = "user1";
+        String userB = "user2";
+        when(contactService.isMutualContact(userA, userB)).thenReturn(true);
+
+        // Act
+        ResponseEntity<SuccessResponse<java.util.Map<String, Object>>> response = contactController.isMutualContact(userA, userB);
+
+        // Assert
+        assertNotNull(response.getBody());
+        assertTrue(response.getStatusCode().is2xxSuccessful());
+        assertEquals("200", response.getBody().getResponseCode());
+        assertEquals("Users are mutual contacts", response.getBody().getMessage());
+        assertEquals(1, response.getBody().getData().size());
+        assertTrue((boolean) response.getBody().getData().get(0).get("mutual"));
+        verify(contactService, times(1)).isMutualContact(userA, userB);
+    }
+
+    @Test
+    void testIsMutualContact_WhenNotMutual() {
+        // Arrange
+        String userA = "user1";
+        String userB = "user3";
+        when(contactService.isMutualContact(userA, userB)).thenReturn(false);
+
+        // Act
+        ResponseEntity<SuccessResponse<java.util.Map<String, Object>>> response = contactController.isMutualContact(userA, userB);
+
+        // Assert
+        assertNotNull(response.getBody());
+        assertTrue(response.getStatusCode().is2xxSuccessful());
+        assertEquals("404", response.getBody().getResponseCode());
+        assertEquals("Users are not mutual contacts", response.getBody().getMessage());
+        assertFalse((boolean) response.getBody().getData().get(0).get("mutual"));
+        verify(contactService, times(1)).isMutualContact(userA, userB);
     }
 }
