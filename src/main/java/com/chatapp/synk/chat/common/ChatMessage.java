@@ -11,6 +11,7 @@ public class ChatMessage {
     private String body;
     private String sentAt;
     private String lastActiveTimeStamp;// only for presence it has utc time
+    private String fromUserName;
 
     public ChatMessage() {
     }
@@ -76,5 +77,13 @@ public class ChatMessage {
 
     public void setLastActiveTimeStamp(String lastActiveTimeStamp) {
         this.lastActiveTimeStamp = lastActiveTimeStamp;
+    }
+
+    public String getFromUserName() {
+        return fromUserName;
+    }
+
+    public void setFromUserName(String fromUserName) {
+        this.fromUserName = fromUserName;
     }
 }

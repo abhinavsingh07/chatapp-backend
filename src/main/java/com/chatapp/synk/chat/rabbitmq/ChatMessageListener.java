@@ -91,6 +91,7 @@ public class ChatMessageListener {
             return false;
         }
 
+        //websocket is maintaing in localWsSessionRegistry of each server 
         WebSocketSession wsSession = localWsSessionRegistry.getWSSession(sessionId);
         if (wsSession != null && wsSession.isOpen()) {
             try {
