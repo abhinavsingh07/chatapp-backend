@@ -2,6 +2,8 @@ package com.chatapp.synk.security;
 
 import com.chatapp.synk.response.ErrorResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
+import io.jsonwebtoken.ExpiredJwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -9,6 +11,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -37,7 +40,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     private static final List<String> EXCLUDED_URLS = List.of("/auth/authenticate", "/auth/register");
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+            throws ServletException, IOException {
 
         String requestPath = request.getRequestURI();
         for (String uri : EXCLUDED_URLS) {
@@ -63,22 +67,29 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                  * "If token signature is valid,
                  * then token was issued by my server."
                  * That is the core idea of JWT authentication.
-                 * */
+                 */
                 if (jwtUtil.isTokenValid(token)) { // validate signature + expiry
 
                     // Convert roles into Spring Security authorities
-                    List<GrantedAuthority> authorities = roles.stream().map(SimpleGrantedAuthority::new).collect(Collectors.toList());
+                    List<GrantedAuthority> authorities = roles.stream().map(SimpleGrantedAuthority::new)
+                            .collect(Collectors.toList());
 
                     // Build Authentication object directly from JWT claims
-                    UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(username, null, authorities);
+                    UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(username,
+                            null, authorities);
 
                     authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 
                     SecurityContextHolder.getContext().setAuthentication(authToken);
                 } else {
-                    sendUnauthorizedResponse(response, "Invalid or expired JWT token");
-                    return;
+                    // sendUnauthorizedResponse(response, "Invalid or expired JWT token");
+                    // return;
+                    // invalid or expired -> let Spring handle
+                    throw new BadCredentialsException("Invalid or expired JWT token");
                 }
+            } catch (ExpiredJwtException ex) {
+                //go to our jwt auth entry point to send a 401 with our error response wrapper
+                throw new BadCredentialsException("JWT token expired", ex);
             } catch (Exception e) {
                 sendUnauthorizedResponse(response, "JWT token validation failed: " + e.getMessage());
                 return;
@@ -93,7 +104,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
 
-        ErrorResponse<Void> errorResponse = new ErrorResponse<>(HttpServletResponse.SC_UNAUTHORIZED, HttpStatus.UNAUTHORIZED, message);
+        ErrorResponse<Void> errorResponse = new ErrorResponse<>(HttpServletResponse.SC_UNAUTHORIZED,
+                HttpStatus.UNAUTHORIZED, message);
 
         ObjectMapper mapper = new ObjectMapper();
         String json = mapper.writeValueAsString(errorResponse);
