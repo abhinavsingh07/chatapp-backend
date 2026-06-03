@@ -16,9 +16,12 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
     private final JwtAuthFilter jwtAuthFilter;
     private final PhoneNumberAuthenticationProvider phoneNumberAuthProvider;
+    private final JwtAuthEntryPoint jwtAuthEntryPoint;
+
     public SecurityConfig(JwtAuthFilter jwtAuthFilter, PhoneNumberAuthenticationProvider phoneNumberAuthProvider) {
         this.jwtAuthFilter = jwtAuthFilter;
         this.phoneNumberAuthProvider = phoneNumberAuthProvider;
+        this.jwtAuthEntryPoint = new JwtAuthEntryPoint(); // Initialize the entry point
     }
 
     //set the user details service and password encoder for the custom authentication provider
@@ -28,7 +31,8 @@ public class SecurityConfig {
         return phoneNumberAuthProvider; // use the instance Spring knows about
     }
 
-    //we need to register our custom provider to authenticationManager
+    //we need to register our custom provider to authenticationManager we need this bean as we are explicitly calling
+    //authenticationManager in our controller to authenticate the user.
     @Bean
     public AuthenticationManager authenticationManager(HttpSecurity http) throws Exception {
         AuthenticationManagerBuilder builder = http.getSharedObject(AuthenticationManagerBuilder.class);
@@ -49,6 +53,7 @@ public class SecurityConfig {
                                         "/actuator/**").permitAll()
                         .anyRequest().authenticated())
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .exceptionHandling(ex -> ex.authenticationEntryPoint(jwtAuthEntryPoint))
                 .authenticationProvider(authenticationProvider())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class).build();
     }

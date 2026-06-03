@@ -6,6 +6,7 @@ public class JwtResponse implements Serializable {
     private static final long serialVersionUID = -8091879091924046844L;
     private String id;
     private final String jwtToken;
+    private String refreshToken;
     private String username;//contains phone number.
     private String name;
     private String roles;
@@ -24,8 +25,27 @@ public class JwtResponse implements Serializable {
         //this.expiry = new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 10);
     }
 
+    public JwtResponse(String jwtToken, String refreshToken, String username, String name, String roles, String email, String profilePictureUrl, String id) {
+        this.jwtToken = jwtToken;
+        this.refreshToken = refreshToken;
+        this.username = username;
+        this.name = name;
+        this.roles = roles;
+        this.email = email;
+        this.profilePictureUrl = profilePictureUrl;
+        this.id = id;
+    }
+
     public String getJwtToken() {
         return jwtToken;
+    }
+
+    public String getRefreshToken() {
+        return refreshToken;
+    }
+
+    public void setRefreshToken(String refreshToken) {
+        this.refreshToken = refreshToken;
     }
 
     public String getUsername() {

@@ -37,7 +37,10 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         this.customUserDetailsService = customUserDetailsService;
     }
 
-    private static final List<String> EXCLUDED_URLS = List.of("/auth/authenticate", "/auth/register");
+    private static final List<String> EXCLUDED_URLS = List.of("/auth/authenticate",
+     "/auth/register", 
+     "/auth/refresh", 
+     "/auth/logout");
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)

@@ -35,7 +35,7 @@ public class JwtUtil {
                 .setClaims(claims)
                 .setSubject(username)
                 .setIssuedAt(new Date(System.currentTimeMillis()))
-                .setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 60)) // 1 hour expiry
+                .setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 30)) // 30 minutes expiry
                 .signWith(secretKey, SignatureAlgorithm.HS256).compact();
     }
 
@@ -52,6 +52,7 @@ public class JwtUtil {
             // Check not expired (defensive: handles missing expiration as invalid)
             Date expiration = claims.getExpiration();
             return expiration != null && expiration.after(new Date());
+            // return false;
         } catch (JwtException | IllegalArgumentException e) {
             // Invalid token: bad signature, malformed, expired, etc.
             logger.error("JWT validation failed: {}", e.getMessage());
@@ -118,5 +119,26 @@ public class JwtUtil {
 
     public String extractId(String token) {
         return extractClaim(token, claims -> claims.get("id", String.class));
+    }
+
+    // Generate Refresh Token (longer expiry: 7 days)
+    public String generateRefreshToken(String username) {
+        return Jwts.builder()
+                .setSubject(username)
+                .setIssuedAt(new Date(System.currentTimeMillis()))
+                .setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 24 * 7)) // 7 days expiry
+                .signWith(secretKey, SignatureAlgorithm.HS256).compact();
+    }
+
+    // Validate Refresh Token
+    public boolean isRefreshTokenValid(String token) {
+        try {
+            Claims claims = parseToken(token);
+            Date expiration = claims.getExpiration();
+            return expiration != null && expiration.after(new Date());
+        } catch (JwtException | IllegalArgumentException e) {
+            logger.error("Refresh token validation failed: {}", e.getMessage());
+            return false;
+        }
     }
 }

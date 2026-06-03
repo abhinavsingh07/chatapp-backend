@@ -2,6 +2,7 @@ package com.chatapp.synk.controller;
 
 import com.chatapp.synk.security_validator.InputValidationAndSanitizationService;
 import com.chatapp.synk.dto.AuthDTO;
+import com.chatapp.synk.dto.RefreshTokenRequest;
 import com.chatapp.synk.dto.UserDTO;
 import com.chatapp.synk.exceptionHandler.ServiceException;
 import com.chatapp.synk.response.SuccessResponse;
@@ -34,12 +35,14 @@ public class AuthController {
     private final JwtUtil jwtUtil;
     private final CustomUserDetailsService userDetailsService;
     private final UserService userService;
+    private final RefreshTokenService refreshTokenService;
 
-    public AuthController(AuthenticationManager authenticationManager, JwtUtil jwtUtil, CustomUserDetailsService userDetailsService, UserService userService) {
+    public AuthController(AuthenticationManager authenticationManager, JwtUtil jwtUtil, CustomUserDetailsService userDetailsService, UserService userService, RefreshTokenService refreshTokenService) {
         this.authenticationManager = authenticationManager;
         this.jwtUtil = jwtUtil;
         this.userDetailsService = userDetailsService;
         this.userService = userService;
+        this.refreshTokenService = refreshTokenService;
     }
 
     @PostMapping("/authenticate")
@@ -59,12 +62,70 @@ public class AuthController {
         claims.put("name", user.getName());
 
         String token = jwtUtil.generateToken(claims, user.getUsername());
+        String refreshToken = jwtUtil.generateRefreshToken(user.getUsername());
+        
+        // Save refresh token for later validation
+        refreshTokenService.saveRefreshToken(refreshToken, user.getUsername());
 
         if (logger.isDebugEnabled()) {
             logger.debug("JWT token generated for user: {}", maskIdentifier(user.getUsername()));
         }
 
-        return ResponseEntity.ok(new JwtResponse(token, user.getEmail(), user.getName(), user.getUserRoles(), user.getEmail(), user.getProfilePictureUrl(), user.getId()));
+        return ResponseEntity.ok(new JwtResponse(token, refreshToken, user.getEmail(), user.getName(), user.getUserRoles(), user.getEmail(), user.getProfilePictureUrl(), user.getId()));
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<?> refreshToken(@Valid @RequestBody RefreshTokenRequest request) {
+        try {
+            String refreshToken = request.getRefreshToken();
+            
+            if (!refreshTokenService.validateRefreshToken(refreshToken)) {
+                logger.warn("Invalid or expired refresh token");
+                return ResponseEntity.status(401).body(new SuccessResponse<>("401", "Invalid or expired refresh token", List.of()));
+            }
+
+            String username = refreshTokenService.getUsernameFromRefreshToken(refreshToken);
+            if (username == null) {
+                logger.warn("Refresh token validation failed - username not found");
+                return ResponseEntity.status(401).body(new SuccessResponse<>("401", "Invalid refresh token", List.of()));
+            }
+
+            // Load user details
+            CustomUserDetails user = (CustomUserDetails) userDetailsService.loadUserByUsername(username);
+
+            // Generate new access token
+            Map<String, Object> claims = new HashMap<>();
+            claims.put("roles", user.getAuthorities().stream().map(authObj -> authObj.getAuthority()).collect(Collectors.toList()));
+            claims.put("id", user.getId());
+            claims.put("email", user.getEmail());
+            claims.put("name", user.getName());
+
+            String newToken = jwtUtil.generateToken(claims, user.getUsername());
+
+            if (logger.isDebugEnabled()) {
+                logger.debug("New JWT token generated via refresh for user: {}", maskIdentifier(user.getUsername()));
+            }
+
+            // Return new token with existing refresh token
+            return ResponseEntity.ok(new JwtResponse(newToken, refreshToken, user.getEmail(), user.getName(), user.getUserRoles(), user.getEmail(), user.getProfilePictureUrl(), user.getId()));
+        } catch (Exception e) {
+            logger.error("Error refreshing token: {}", e.getMessage());
+            return ResponseEntity.status(500).body(new SuccessResponse<>("500", "Token refresh failed", List.of()));
+        }
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<?> logout(@Valid @RequestBody RefreshTokenRequest request) {
+        try {
+            String refreshToken = request.getRefreshToken();
+            refreshTokenService.revokeRefreshToken(refreshToken);
+            
+            logger.info("User logged out successfully");
+            return ResponseEntity.ok(new SuccessResponse<>("200", "Logged out successfully", List.of()));
+        } catch (Exception e) {
+            logger.error("Error during logout: {}", e.getMessage());
+            return ResponseEntity.status(500).body(new SuccessResponse<>("500", "Logout failed", List.of()));
+        }
     }
 
     private Authentication authenticate(String username, String password) throws ServiceException {
