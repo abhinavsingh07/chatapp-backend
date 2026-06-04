@@ -84,7 +84,14 @@ public class AuthController {
     public ResponseEntity<?> refreshToken(@Valid @RequestBody RefreshTokenRequest request) {
         try {
             String refreshToken = request.getRefreshToken();
+            if (refreshToken == null || refreshToken.isBlank()) {
+                logger.warn("Refresh token is missing in the request");
+                return ResponseEntity.status(400)
+                        .body(new SuccessResponse<>("400", "Refresh token is required", List.of()));
+            }
 
+            // token validation is already doing in extractclaims, so we can directly extract username and if token is invalid
+            // it will throw exception and we can handle in catch block.
             String username = refreshTokenService.getUsernameFromRefreshToken(refreshToken);
             if (username == null) {
                 logger.warn("Refresh token validation failed - username not found");

@@ -91,7 +91,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 }
             } catch (ExpiredJwtException ex) {
                 //go to our jwt auth entry point to send a 401 with our error response wrapper
-                throw new BadCredentialsException("JWT token expired", ex);
+                throw new BadCredentialsException("JWT token expired msg::" + ex.getMessage());
             } catch (Exception e) {
                 throw new BadCredentialsException("JWT token validation failed: " + e.getMessage());
             }
