@@ -1,6 +1,7 @@
 package com.chatapp.synk.security;
 
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
@@ -10,6 +11,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+
+import com.chatapp.synk.exceptionHandler.InvalidTokenException;
 
 import java.security.Key;
 import java.util.Date;
@@ -23,20 +26,49 @@ public class JwtUtil {
     private final Key secretKey;
 
     @Autowired
-    //@Autowired here tells Spring:
-    //"When creating a JwtUtil bean, call this constructor and inject its parameters automatically."
+    // @Autowired here tells Spring:
+    // "When creating a JwtUtil bean, call this constructor and inject its
+    // parameters automatically."
     public JwtUtil(@Value("${jwt.secret}") String secret) {
         this.secretKey = Keys.hmacShaKeyFor(secret.getBytes());
     }
 
     // Generate JWT token with claims
-    public String generateToken(Map<String, Object> claims, String username) {
+    public String generateAccessToken(Map<String, Object> claims, String username) {
         return Jwts.builder()
                 .setClaims(claims)
                 .setSubject(username)
                 .setIssuedAt(new Date(System.currentTimeMillis()))
                 .setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 30)) // 30 minutes expiry
                 .signWith(secretKey, SignatureAlgorithm.HS256).compact();
+    }
+
+    /**
+     * Parse token to verify signature
+     *
+     * @param token JWT token to parse
+     * @return Claims object containing the token's claims
+     */
+
+    private Claims parseToken(String token) {
+        // Cheap CPU operation: Fast-fail if the token format is obviously garbage
+        if (token == null || token.split("\\.").length != 3) {
+            throw new InvalidTokenException("Malformed token structural format");
+        }
+
+        try {
+            return Jwts.parserBuilder()
+                    .setSigningKey(secretKey)
+                    .build()
+                    .parseClaimsJws(token) // This verifies the signature! cpu heavy operation, so do it once and reuse claims for all extractions.
+                    .getBody();
+        } catch (ExpiredJwtException e) {
+            logger.error("Token has expired msg:{}", e.getMessage());
+            throw new InvalidTokenException("Token has expired", e);
+        } catch (JwtException | IllegalArgumentException e) {
+            logger.error("Invalid JWT signature or token! exception msg:{}", e.getMessage());
+            throw new InvalidTokenException("Invalid token signature!", e); // Force rejection on parse/signature error
+        }
     }
 
     // Extract any claim securely (with signature verification)
@@ -52,30 +84,10 @@ public class JwtUtil {
             // Check not expired (defensive: handles missing expiration as invalid)
             Date expiration = claims.getExpiration();
             return expiration != null && expiration.after(new Date());
-            // return false;
         } catch (JwtException | IllegalArgumentException e) {
             // Invalid token: bad signature, malformed, expired, etc.
             logger.error("JWT validation failed: {}", e.getMessage());
             return false;
-        }
-    }
-
-
-    /**
-     * Parse token to verify signature
-     *
-     * @param token JWT token to parse
-     * @return Claims object containing the token's claims
-     */
-    private Claims parseToken(String token) {
-        try {
-            return Jwts.parser()
-                    .setSigningKey(secretKey)
-                    .parseClaimsJws(token)   // This verifies the signature!
-                    .getBody();
-        } catch (JwtException e) {
-            logger.error("Invalid JWT signature or token! exception msg:{}", e);
-            throw new RuntimeException("Invalid JWT signature or token!", e); // Force rejection on parse/signature error
         }
     }
 

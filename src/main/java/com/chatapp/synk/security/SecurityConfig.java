@@ -44,8 +44,11 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http.csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth ->
-                        auth.requestMatchers("/auth/authenticate",
+                        auth.requestMatchers(
+                                        "/auth/authenticate",
                                         "/auth/register",
+                                        "/auth/refresh",
+                                        "/auth/logout",
                                         "/ws/chat",
                                         "/v3/api-docs/**",
                                         "/swagger-ui/**",

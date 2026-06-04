@@ -80,7 +80,7 @@ class AuthControllerTest {
             customUserDetails.getAuthorities()
         );
         when(authenticationManager.authenticate(any())).thenReturn(mockAuth);
-        when(jwtUtil.generateToken(anyMap(), eq("test@example.com")))
+        when(jwtUtil.generateAccessToken(anyMap(), eq("test@example.com")))
             .thenReturn("jwt-token-12345");
 
         // Act
@@ -93,7 +93,7 @@ class AuthControllerTest {
         assertEquals("John Doe", response.getBody().getName());
         assertEquals("test@example.com", response.getBody().getEmail());
         verify(authenticationManager, times(1)).authenticate(any());
-        verify(jwtUtil, times(1)).generateToken(anyMap(), anyString());
+        verify(jwtUtil, times(1)).generateAccessToken(anyMap(), anyString());
     }
 
     @Test

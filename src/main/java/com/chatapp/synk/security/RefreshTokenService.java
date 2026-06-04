@@ -46,14 +46,14 @@ public class RefreshTokenService {
      * @return true if token is valid and exists in store, false otherwise
      */
     public boolean validateRefreshToken(String token) {
-        if (!tokenStore.containsKey(token)) {
-            logger.warn("Refresh token not found in store");
-            return false;
-        }
+        // if (!tokenStore.containsKey(token)) {
+        //     logger.warn("Refresh token not found in store");
+        //     return false;
+        // }
 
         if (!jwtUtil.isRefreshTokenValid(token)) {
             logger.warn("Refresh token is expired or invalid");
-            tokenStore.remove(token); // Remove expired token
+            // tokenStore.remove(token); // Remove expired token
             return false;
         }
 
@@ -67,10 +67,7 @@ public class RefreshTokenService {
      * @return username if token is valid, null otherwise
      */
     public String getUsernameFromRefreshToken(String token) {
-        if (!validateRefreshToken(token)) {
-            return null;
-        }
-        return tokenStore.get(token);
+        return jwtUtil.extractUsername(token);
     }
 
     /**

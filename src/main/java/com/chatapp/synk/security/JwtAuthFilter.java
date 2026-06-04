@@ -30,14 +30,13 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
     private static final Logger logger = LoggerFactory.getLogger(JwtAuthFilter.class);
     private final JwtUtil jwtUtil;
-    private final UserDetailsService customUserDetailsService;
 
-    public JwtAuthFilter(JwtUtil jwtUtil, UserDetailsService customUserDetailsService) {
+    public JwtAuthFilter(JwtUtil jwtUtil) {
         this.jwtUtil = jwtUtil;
-        this.customUserDetailsService = customUserDetailsService;
     }
 
-    private static final List<String> EXCLUDED_URLS = List.of("/auth/authenticate",
+    private static final List<String> EXCLUDED_URLS = List.of(
+     "/auth/authenticate",
      "/auth/register", 
      "/auth/refresh", 
      "/auth/logout");
@@ -94,25 +93,10 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 //go to our jwt auth entry point to send a 401 with our error response wrapper
                 throw new BadCredentialsException("JWT token expired", ex);
             } catch (Exception e) {
-                sendUnauthorizedResponse(response, "JWT token validation failed: " + e.getMessage());
-                return;
+                throw new BadCredentialsException("JWT token validation failed: " + e.getMessage());
             }
         }
 
         filterChain.doFilter(request, response);
     }
-
-    private void sendUnauthorizedResponse(HttpServletResponse response, String message) throws IOException {
-        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-        response.setContentType("application/json");
-        response.setCharacterEncoding("UTF-8");
-
-        ErrorResponse<Void> errorResponse = new ErrorResponse<>(HttpServletResponse.SC_UNAUTHORIZED,
-                HttpStatus.UNAUTHORIZED, message);
-
-        ObjectMapper mapper = new ObjectMapper();
-        String json = mapper.writeValueAsString(errorResponse);
-        response.getWriter().write(json);
-    }
-
 }

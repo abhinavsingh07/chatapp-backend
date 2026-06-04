@@ -4,6 +4,7 @@ import com.chatapp.synk.security_validator.InputValidationAndSanitizationService
 import com.chatapp.synk.dto.AuthDTO;
 import com.chatapp.synk.dto.RefreshTokenRequest;
 import com.chatapp.synk.dto.UserDTO;
+import com.chatapp.synk.exceptionHandler.InvalidTokenException;
 import com.chatapp.synk.exceptionHandler.ServiceException;
 import com.chatapp.synk.response.SuccessResponse;
 import com.chatapp.synk.security.*;
@@ -37,7 +38,9 @@ public class AuthController {
     private final UserService userService;
     private final RefreshTokenService refreshTokenService;
 
-    public AuthController(AuthenticationManager authenticationManager, JwtUtil jwtUtil, CustomUserDetailsService userDetailsService, UserService userService, RefreshTokenService refreshTokenService) {
+    public AuthController(AuthenticationManager authenticationManager, JwtUtil jwtUtil,
+            CustomUserDetailsService userDetailsService, UserService userService,
+            RefreshTokenService refreshTokenService) {
         this.authenticationManager = authenticationManager;
         this.jwtUtil = jwtUtil;
         this.userDetailsService = userDetailsService;
@@ -48,7 +51,8 @@ public class AuthController {
     @PostMapping("/authenticate")
     public ResponseEntity<JwtResponse> authenticate(@Valid @RequestBody AuthDTO authDTO) throws ServiceException {
         if (logger.isDebugEnabled()) {
-            logger.debug("Authentication request received for identifier: {}", maskIdentifier(authDTO.getPhoneNumberOrEmail()));
+            logger.debug("Authentication request received for identifier: {}",
+                    maskIdentifier(authDTO.getPhoneNumberOrEmail()));
         }
 
         AuthDTO sanitizedDTO = InputValidationAndSanitizationService.validateAndSanitize(authDTO);
@@ -56,38 +60,36 @@ public class AuthController {
 
         CustomUserDetails user = (CustomUserDetails) auth.getPrincipal();
         Map<String, Object> claims = new HashMap<>();
-        claims.put("roles", user.getAuthorities().stream().map(authObj -> authObj.getAuthority()).collect(Collectors.toList()));
+        claims.put("roles",
+                user.getAuthorities().stream().map(authObj -> authObj.getAuthority()).collect(Collectors.toList()));
         claims.put("id", user.getId());
         claims.put("email", user.getEmail());
         claims.put("name", user.getName());
 
-        String token = jwtUtil.generateToken(claims, user.getUsername());
+        String token = jwtUtil.generateAccessToken(claims, user.getUsername());
         String refreshToken = jwtUtil.generateRefreshToken(user.getUsername());
-        
+
         // Save refresh token for later validation
-        refreshTokenService.saveRefreshToken(refreshToken, user.getUsername());
+        // refreshTokenService.saveRefreshToken(refreshToken, user.getUsername());
 
         if (logger.isDebugEnabled()) {
             logger.debug("JWT token generated for user: {}", maskIdentifier(user.getUsername()));
         }
 
-        return ResponseEntity.ok(new JwtResponse(token, refreshToken, user.getEmail(), user.getName(), user.getUserRoles(), user.getEmail(), user.getProfilePictureUrl(), user.getId()));
+        return ResponseEntity.ok(new JwtResponse(token, refreshToken, user.getEmail(), user.getName(),
+                user.getUserRoles(), user.getEmail(), user.getProfilePictureUrl(), user.getId()));
     }
 
     @PostMapping("/refresh")
     public ResponseEntity<?> refreshToken(@Valid @RequestBody RefreshTokenRequest request) {
         try {
             String refreshToken = request.getRefreshToken();
-            
-            if (!refreshTokenService.validateRefreshToken(refreshToken)) {
-                logger.warn("Invalid or expired refresh token");
-                return ResponseEntity.status(401).body(new SuccessResponse<>("401", "Invalid or expired refresh token", List.of()));
-            }
 
             String username = refreshTokenService.getUsernameFromRefreshToken(refreshToken);
             if (username == null) {
                 logger.warn("Refresh token validation failed - username not found");
-                return ResponseEntity.status(401).body(new SuccessResponse<>("401", "Invalid refresh token", List.of()));
+                return ResponseEntity.status(401)
+                        .body(new SuccessResponse<>("401", "Invalid refresh token", List.of()));
             }
 
             // Load user details
@@ -95,19 +97,24 @@ public class AuthController {
 
             // Generate new access token
             Map<String, Object> claims = new HashMap<>();
-            claims.put("roles", user.getAuthorities().stream().map(authObj -> authObj.getAuthority()).collect(Collectors.toList()));
+            claims.put("roles",
+                    user.getAuthorities().stream().map(authObj -> authObj.getAuthority()).collect(Collectors.toList()));
             claims.put("id", user.getId());
             claims.put("email", user.getEmail());
             claims.put("name", user.getName());
 
-            String newToken = jwtUtil.generateToken(claims, user.getUsername());
+            String newToken = jwtUtil.generateAccessToken(claims, user.getUsername());
 
             if (logger.isDebugEnabled()) {
                 logger.debug("New JWT token generated via refresh for user: {}", maskIdentifier(user.getUsername()));
             }
 
             // Return new token with existing refresh token
-            return ResponseEntity.ok(new JwtResponse(newToken, refreshToken, user.getEmail(), user.getName(), user.getUserRoles(), user.getEmail(), user.getProfilePictureUrl(), user.getId()));
+            return ResponseEntity.ok(new JwtResponse(newToken, refreshToken, user.getEmail(), user.getName(),
+                    user.getUserRoles(), user.getEmail(), user.getProfilePictureUrl(), user.getId()));
+        } catch (InvalidTokenException e) {
+            logger.warn("Token refresh failed: {}", e.getMessage());
+            return ResponseEntity.status(401).body(new SuccessResponse<>("401", "Invalid refresh token", List.of()));
         } catch (Exception e) {
             logger.error("Error refreshing token: {}", e.getMessage());
             return ResponseEntity.status(500).body(new SuccessResponse<>("500", "Token refresh failed", List.of()));
@@ -119,7 +126,7 @@ public class AuthController {
         try {
             String refreshToken = request.getRefreshToken();
             refreshTokenService.revokeRefreshToken(refreshToken);
-            
+
             logger.info("User logged out successfully");
             return ResponseEntity.ok(new SuccessResponse<>("200", "Logged out successfully", List.of()));
         } catch (Exception e) {
@@ -133,7 +140,8 @@ public class AuthController {
             if (logger.isDebugEnabled()) {
                 logger.debug("Attempting authentication for user: {}", maskIdentifier(username));
             }
-            Authentication auth = authenticationManager.authenticate(new PhoneNumberAuthenticationToken(username, password));
+            Authentication auth = authenticationManager
+                    .authenticate(new PhoneNumberAuthenticationToken(username, password));
 
             if (logger.isDebugEnabled()) {
                 logger.debug("Authentication successful for user: {}", maskIdentifier(username));
@@ -155,7 +163,7 @@ public class AuthController {
                 logger.debug("Registering new user with identifier: {}", maskIdentifier(userDTO.getPhoneNumber()));
             }
             UserDTO savedUser = userService.createUser(userDTO);
-            savedUser.setPassword("********");  // Mask password in response
+            savedUser.setPassword("********"); // Mask password in response
 
             logger.info("User registration successful. User ID: {}", savedUser.getId());
             return ResponseEntity.ok(new SuccessResponse<>("200", "User created successfully", List.of(savedUser)));
@@ -166,7 +174,8 @@ public class AuthController {
     }
 
     private String maskIdentifier(String identifier) {
-        if (identifier == null) return "null";
+        if (identifier == null)
+            return "null";
         // mask email/phone for logs: e.g., 98****1234 or j***@domain.com
         if (identifier.contains("@")) {
             int idx = identifier.indexOf("@");
