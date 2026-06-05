@@ -36,16 +36,13 @@ public class AuthController {
     private final JwtUtil jwtUtil;
     private final CustomUserDetailsService userDetailsService;
     private final UserService userService;
-    private final RefreshTokenService refreshTokenService;
 
     public AuthController(AuthenticationManager authenticationManager, JwtUtil jwtUtil,
-            CustomUserDetailsService userDetailsService, UserService userService,
-            RefreshTokenService refreshTokenService) {
+            CustomUserDetailsService userDetailsService, UserService userService) {
         this.authenticationManager = authenticationManager;
         this.jwtUtil = jwtUtil;
         this.userDetailsService = userDetailsService;
         this.userService = userService;
-        this.refreshTokenService = refreshTokenService;
     }
 
     @PostMapping("/authenticate")
@@ -63,8 +60,12 @@ public class AuthController {
         claims.put("roles",
                 user.getAuthorities().stream().map(authObj -> authObj.getAuthority()).collect(Collectors.toList()));
         claims.put("id", user.getId());
-        claims.put("email", user.getEmail());
-        claims.put("name", user.getName());
+        // dont store in jwt. In jwt only add important info like id, role etc.
+        // even if user updates info we dont need to refresh jwt
+        // user directly fetch latest details by id this is the main purpose to remove
+        // other details
+        // claims.put("email", user.getEmail());
+        // claims.put("name", user.getName());//dont store in jwt
 
         String token = jwtUtil.generateAccessToken(claims, user.getUsername());
         String refreshToken = jwtUtil.generateRefreshToken(user.getUsername());
@@ -83,6 +84,7 @@ public class AuthController {
     @PostMapping("/refresh")
     public ResponseEntity<?> refreshToken(@Valid @RequestBody RefreshTokenRequest request) {
         try {
+            logger.info("Refresh Token request received.");
             String refreshToken = request.getRefreshToken();
             if (refreshToken == null || refreshToken.isBlank()) {
                 logger.warn("Refresh token is missing in the request");
@@ -90,13 +92,15 @@ public class AuthController {
                         .body(new SuccessResponse<>("400", "Refresh token is required", List.of()));
             }
 
-            // token validation is already doing in extractclaims, so we can directly extract username and if token is invalid
+            // token validation is already doing in extractclaims, so we can directly
+            // extract username and if token is invalid
             // it will throw exception and we can handle in catch block.
-            String username = refreshTokenService.getUsernameFromRefreshToken(refreshToken);
+            String username = jwtUtil.extractUsername(refreshToken);
             if (username == null) {
                 logger.warn("Refresh token validation failed - username not found");
                 return ResponseEntity.status(401)
-                        .body(new SuccessResponse<>("401", "Invalid refresh token", List.of()));
+                        .body(new SuccessResponse<>("401", "Refresh token validation failed - username not found",
+                                List.of()));
             }
 
             // Load user details
@@ -107,33 +111,31 @@ public class AuthController {
             claims.put("roles",
                     user.getAuthorities().stream().map(authObj -> authObj.getAuthority()).collect(Collectors.toList()));
             claims.put("id", user.getId());
-            claims.put("email", user.getEmail());
-            claims.put("name", user.getName());
 
             String newToken = jwtUtil.generateAccessToken(claims, user.getUsername());
 
-            if (logger.isDebugEnabled()) {
-                logger.debug("New JWT token generated via refresh for user: {}", maskIdentifier(user.getUsername()));
-            }
+            logger.info("New JWT token generated via refresh for user: {}", maskIdentifier(user.getUsername()));
 
             // Return new token with existing refresh token
             return ResponseEntity.ok(new JwtResponse(newToken, refreshToken, user.getEmail(), user.getName(),
                     user.getUserRoles(), user.getEmail(), user.getProfilePictureUrl(), user.getId()));
         } catch (InvalidTokenException e) {
             logger.warn("Token refresh failed: {}", e.getMessage());
-            return ResponseEntity.status(401).body(new SuccessResponse<>("401", "Invalid refresh token", List.of()));
+            return ResponseEntity.status(401).body(new SuccessResponse<>("401",
+                    "Refresh token validation failed error msg: " + e.getMessage(), List.of()));
         } catch (Exception e) {
             logger.error("Error refreshing token: {}", e.getMessage());
-            return ResponseEntity.status(500).body(new SuccessResponse<>("500", "Token refresh failed", List.of()));
+            return ResponseEntity.status(500).body(new SuccessResponse<>("500",
+                    "Refresh token validation failed error msg: " + e.getMessage(), List.of()));
         }
     }
 
     @PostMapping("/logout")
     public ResponseEntity<?> logout(@Valid @RequestBody RefreshTokenRequest request) {
         try {
-            String refreshToken = request.getRefreshToken();
-            refreshTokenService.revokeRefreshToken(refreshToken);
-
+            // String refreshToken = request.getRefreshToken();
+            // refreshTokenService.revokeRefreshToken(refreshToken);
+            //to do method
             logger.info("User logged out successfully");
             return ResponseEntity.ok(new SuccessResponse<>("200", "Logged out successfully", List.of()));
         } catch (Exception e) {

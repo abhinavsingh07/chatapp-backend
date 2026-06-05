@@ -3,14 +3,22 @@ package com.chatapp.synk.controller;
 import com.chatapp.synk.dto.UserDTO;
 import com.chatapp.synk.dto.UserStatusDTO;
 import com.chatapp.synk.response.SuccessResponse;
+import com.chatapp.synk.security.JwtUtil;
 import com.chatapp.synk.service.UserService;
+
+import io.jsonwebtoken.Claims;
+import jakarta.servlet.http.HttpServletRequest;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/users")
@@ -19,9 +27,11 @@ public class UserController {
     private static final Logger logger = LoggerFactory.getLogger(UserController.class);
 
     private final UserService userService;
+    private final JwtUtil jwtUtil;
 
-    public UserController(UserService userService) {
+    public UserController(UserService userService, JwtUtil jwtUtil) {
         this.userService = userService;
+        this.jwtUtil = jwtUtil;
     }
 
     @GetMapping("/all")
@@ -63,7 +73,9 @@ public class UserController {
             logger.warn("No user ID provided for status check");
             return ResponseEntity.ok(new SuccessResponse<>("400", "No user ID provided", Collections.emptyList()));
         }
-        //this is will give the last active status of multiple users, as user can be active in multiple devices, so we will return the list of status of all devices
+        // this is will give the last active status of multiple users, as user can be
+        // active in multiple devices, so we will return the list of status of all
+        // devices
         List<UserStatusDTO> result = userService.getLastActiveUserStatus(userId);
         if (result.isEmpty()) {
             logger.warn("No status found for user ID {}", userId);
@@ -71,5 +83,29 @@ public class UserController {
         }
         return ResponseEntity.ok(new SuccessResponse<>("200", "User statuses fetched", result));
     }
-}
 
+    @GetMapping("/me")
+    public ResponseEntity<SuccessResponse<UserDTO>> getUserMe(HttpServletRequest request) {
+        // Get Claims directly from request attribute set by JwtAuthFilter
+        // frontend only sends token. We parse it once in the filter, and set all claims in request attribute.
+        Claims userDetails = (Claims) request.getAttribute("userDetails");
+
+        if (userDetails == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new SuccessResponse<>("401", "User details not found", Collections.emptyList()));
+        }
+
+        // Now extract any information without re-parsing the token
+        String id = jwtUtil.extractId(userDetails);
+        // List<String> roles = jwtUtil.extractRoles(userDetails);
+
+        if (id != null) {
+            UserDTO userOpt = userService.getUserById(id);
+            if (userOpt != null) {
+                return ResponseEntity.ok(new SuccessResponse<>("200", "User fetched", List.of(userOpt)));
+            }
+        } 
+
+        return ResponseEntity.ok(new SuccessResponse<>("404", "User ID not found in token", Collections.emptyList()));
+    }
+}
