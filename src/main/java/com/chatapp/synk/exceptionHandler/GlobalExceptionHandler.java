@@ -27,27 +27,35 @@ public class GlobalExceptionHandler {
     private final int HTTP_CODE_BAD_REQUEST = 400;
     private final int HTTP_CODE_INTERNAL_SERVER_ERROR = 500;
 
-    @ExceptionHandler({ServiceException.class})
+    @ExceptionHandler(ServiceException.class)
     public ResponseEntity<ErrorResponse> handleServiceException(ServiceException exception) {
+        HttpStatus status = exception.getStatus() != null
+                ? exception.getStatus()
+                : HttpStatus.INTERNAL_SERVER_ERROR;
 
-        HttpStatus status = exception.getStatus() != null ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
-        ErrorResponse errResp = new ErrorResponse();
-        errResp.setErrorMessage(exception.getMessage());
-        if (exception.getStatus() != null) {
-            errResp.setResponseCode(exception.getStatus().value());//404
-            errResp.setError(exception.getStatus());//NOT_FOUND
-        } else {
-            errResp.setResponseCode(HTTP_CODE_INTERNAL_SERVER_ERROR);
-            errResp.setError(HttpStatus.INTERNAL_SERVER_ERROR);
-        }
+        logger.error("A ServiceException occurred: {}", exception.getMessage());
 
-        logger.error("An ServiceException occurred: {}", exception.getMessage());
-        return new ResponseEntity<>(errResp, status);
+        return ResponseEntity.status(status)
+                .body(new ErrorResponse(
+                        status.value(),
+                        status,
+                        exception.getMessage()));
     }
 
-    @ExceptionHandler(Exception.class)//catches Runtime Exception as well
+    @ExceptionHandler(InvalidTokenException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidToken(InvalidTokenException ex) {
+        logger.warn("Invalid token: {}", ex.getMessage());
+
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(new ErrorResponse(
+                        HttpStatus.UNAUTHORIZED.value(),
+                        HttpStatus.UNAUTHORIZED,
+                        ex.getMessage()));
+    }
+
+    @ExceptionHandler(Exception.class) // catches Runtime Exception as well
     public ResponseEntity<ErrorResponse> handleOtherExceptions(Exception ex) {
-        logger.error("Exception occured: {}",ex.getMessage());
+        logger.error("Exception occured: {}", ex.getMessage());
         ErrorResponse errResp = new ErrorResponse();
         errResp.setResponseCode(HTTP_CODE_INTERNAL_SERVER_ERROR);
         errResp.setErrorMessage(ex.getMessage());
@@ -59,9 +67,11 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> processFieldValidationException(final MethodArgumentNotValidException ex) {
         logger.warn("Validation failed: {} field(s)", ex.getBindingResult().getFieldErrorCount());
 
-        List<BeanValidationErrors> errors = ex.getBindingResult().getFieldErrors().stream().map(i -> new BeanValidationErrors(i.getField(), i.getDefaultMessage(), i.getRejectedValue())).collect(Collectors.toList());
+        List<BeanValidationErrors> errors = ex.getBindingResult().getFieldErrors().stream()
+                .map(i -> new BeanValidationErrors(i.getField(), i.getDefaultMessage(), i.getRejectedValue()))
+                .collect(Collectors.toList());
 
-        ErrorResponse<BeanValidationErrors> resp = new ErrorResponse<>();
+        ErrorResponse<BeanValidationErrors> resp = new ErrorResponse();
         resp.setResponseCode(HTTP_CODE_BAD_REQUEST);
         resp.setError(HttpStatus.BAD_REQUEST);
         resp.setErrors(errors);
@@ -78,7 +88,7 @@ public class GlobalExceptionHandler {
             errors.add(new ConstraintValidationErrors(violation.getPropertyPath().toString(), violation.getMessage()));
         }
 
-        ErrorResponse<ConstraintValidationErrors> resp = new ErrorResponse<>();
+        ErrorResponse<ConstraintValidationErrors> resp = new ErrorResponse();
         resp.setResponseCode(HTTP_CODE_BAD_REQUEST);
         resp.setError(HttpStatus.BAD_REQUEST);
         resp.setErrors(errors);

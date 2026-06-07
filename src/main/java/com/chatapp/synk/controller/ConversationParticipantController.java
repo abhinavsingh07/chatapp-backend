@@ -6,6 +6,7 @@ import com.chatapp.synk.service.ConversationParticipantService;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -27,24 +28,24 @@ public class ConversationParticipantController {
     public ResponseEntity<SuccessResponse<ConversationParticipantDTO>> add(@Valid @RequestBody ConversationParticipantDTO dto) {
         logger.info("Adding participant to conversation {}", dto.getConversationId());
         ConversationParticipantDTO added = participantService.addParticipant(dto);
-        return ResponseEntity.ok(new SuccessResponse<>("201", "Participant added", List.of(added)));
+        return ResponseEntity.ok(new SuccessResponse<>(HttpStatus.CREATED, "Participant added", List.of(added)));
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<SuccessResponse<ConversationParticipantDTO>> getById(@PathVariable String id) {
         ConversationParticipantDTO participant = participantService.getParticipantById(id);
         if (participant != null) {
-            return ResponseEntity.ok(new SuccessResponse<>("200", "Participant found", List.of(participant)));
+            return ResponseEntity.ok(new SuccessResponse<>(HttpStatus.OK, "Participant found", List.of(participant)));
         } else {
             logger.debug("Participant not found with ID: {}", id);
-            return ResponseEntity.ok(new SuccessResponse<>("404", "Participant not found", Collections.emptyList()));
+            return ResponseEntity.ok(new SuccessResponse<>(HttpStatus.NOT_FOUND, "Participant not found", Collections.emptyList()));
         }
     }
 
     @GetMapping("/conversation/{conversationId}")
     public ResponseEntity<SuccessResponse<ConversationParticipantDTO>> getByConversation(@PathVariable String conversationId) {
         List<ConversationParticipantDTO> participants = participantService.getParticipantsByConversationId(conversationId);
-        String code = participants.isEmpty() ? "404" : "200";
+        HttpStatus code = participants.isEmpty() ? HttpStatus.NOT_FOUND : HttpStatus.OK;
         String msg = participants.isEmpty() ? "No participants found" : "Participants retrieved";
         if (participants.isEmpty()) {
             logger.debug("No participants found for conversation {}", conversationId);
@@ -56,7 +57,7 @@ public class ConversationParticipantController {
     public ResponseEntity<SuccessResponse<Void>> delete(@PathVariable String id) {
         logger.info("Removing participant with ID: {}", id);
         participantService.deleteByConversationid(id);
-        return ResponseEntity.ok(new SuccessResponse<>("200", "Participant removed", Collections.emptyList()));
+        return ResponseEntity.ok(new SuccessResponse<>(HttpStatus.OK, "Participant removed", Collections.emptyList()));
     }
 }
 

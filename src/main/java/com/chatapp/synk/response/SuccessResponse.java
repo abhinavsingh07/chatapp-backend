@@ -1,29 +1,31 @@
 package com.chatapp.synk.response;
 
+import org.springframework.http.HttpStatus;
+
 import java.util.List;
 
 public class SuccessResponse<T> {
 
-    private String responseCode;
+    private HttpStatus responseCode;
     private String message;
     private List<T> data;
 
-    public SuccessResponse(String responseCode, String message, List<T> data) {
+    public SuccessResponse(HttpStatus responseCode, String message, List<T> data) {
         this.responseCode = responseCode;
         this.message = message;
         this.data = data;
     }
 
-    public SuccessResponse(String responseCode, String message) {
+    public SuccessResponse(HttpStatus responseCode, String message) {
         this.responseCode = responseCode;
         this.message = message;
     }
 
-    public String getResponseCode() {
+    public HttpStatus getResponseCode() {
         return responseCode;
     }
 
-    public void setResponseCode(String responseCode) {
+    public void setResponseCode(HttpStatus responseCode) {
         this.responseCode = responseCode;
     }
 

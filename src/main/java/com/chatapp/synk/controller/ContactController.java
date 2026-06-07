@@ -8,6 +8,7 @@ import com.chatapp.synk.service.ContactService;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -31,11 +32,11 @@ public class ContactController {
 
         if (contactUserDTOList.isEmpty()) {
             logger.warn("No contacts found for userId: {}", userId);
-            return ResponseEntity.ok(new SuccessResponse<>("404", "No contacts found", Collections.emptyList()));
+            return ResponseEntity.ok(new SuccessResponse<>(HttpStatus.NOT_FOUND, "No contacts found", Collections.emptyList()));
         }
 
         logger.info("Found {} contacts for userId: {}", contactUserDTOList.size(), userId);
-        return ResponseEntity.ok(new SuccessResponse<>("200", "Contacts fetched successfully", contactUserDTOList));
+        return ResponseEntity.ok(new SuccessResponse<>(HttpStatus.OK, "Contacts fetched successfully", contactUserDTOList));
     }
 
     @PostMapping
@@ -46,7 +47,7 @@ public class ContactController {
         String message = savedContact.getContactStatus() == ContactStatus.ADDED ? "Contact created successfully" : "Invitation sent successfully";
 
         logger.info("Contact action [{}] completed for userId: {}", message, contactDTO.getUserId());
-        return ResponseEntity.ok(new SuccessResponse<>("200", message, List.of(savedContact)));
+        return ResponseEntity.ok(new SuccessResponse<>(HttpStatus.OK, message, List.of(savedContact)));
     }
 
     @DeleteMapping("/{contactId}")
@@ -56,6 +57,6 @@ public class ContactController {
         contactService.deleteContact(contactId);
 
         logger.info("Contact deleted successfully for contactId: {}", contactId);
-        return ResponseEntity.ok(new SuccessResponse<>("200", "Contact deleted successfully", List.of()));
+        return ResponseEntity.ok(new SuccessResponse<>(HttpStatus.OK, "Contact deleted successfully", List.of()));
     }
 }

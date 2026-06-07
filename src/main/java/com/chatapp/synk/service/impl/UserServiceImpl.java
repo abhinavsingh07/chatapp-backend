@@ -2,6 +2,7 @@ package com.chatapp.synk.service.impl;
 
 import com.chatapp.synk.chat.redis.RedisSessionStore;
 import com.chatapp.synk.dto.AuthDTO;
+import com.chatapp.synk.dto.RefreshTokenRequest;
 import com.chatapp.synk.dto.UserDTO;
 import com.chatapp.synk.dto.UserStatusDTO;
 import com.chatapp.synk.entity.Contact;
@@ -9,10 +10,13 @@ import com.chatapp.synk.entity.User;
 import com.chatapp.synk.entity.UserRole;
 import com.chatapp.synk.enums.ContactStatus;
 import com.chatapp.synk.enums.RoleName;
+import com.chatapp.synk.exceptionHandler.InvalidTokenException;
 import com.chatapp.synk.exceptionHandler.ServiceException;
 import com.chatapp.synk.repository.ContactRepository;
 import com.chatapp.synk.repository.UserRepository;
 import com.chatapp.synk.repository.UserRoleRepository;
+import com.chatapp.synk.security.JwtResponse;
+import com.chatapp.synk.security.JwtUtil;
 import com.chatapp.synk.security_validator.InputSecurityUtils;
 import com.chatapp.synk.security_validator.InputValidationAndSanitizationService;
 import com.chatapp.synk.security_validator.UserInputValidator;
@@ -42,17 +46,20 @@ public class UserServiceImpl implements UserService {
     private final ContactRepository contactRepository;
     private final UserRoleRepository userRoleRepository;
     private final RedisSessionStore redisSessionStore;
+    private final JwtUtil jwtUtil;
 
     public UserServiceImpl(UserRepository userRepository,
                            PasswordEncoder passwordEncoder,
                            ContactRepository contactRepository,
                            UserRoleRepository userRoleRepository,
-                           RedisSessionStore redisSessionStore) {
+                           RedisSessionStore redisSessionStore,
+                           JwtUtil jwtUtil) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.contactRepository = contactRepository;
         this.userRoleRepository = userRoleRepository;
         this.redisSessionStore = redisSessionStore;
+        this.jwtUtil = jwtUtil;
     }
 
     @Override
@@ -136,6 +143,25 @@ public class UserServiceImpl implements UserService {
         } catch (Exception ex) {
             logger.error("Unexpected error while creating user", ex);
             throw new ServiceException(ex.getMessage());
+        }
+    }
+
+    @Override
+    public UserDTO registerUser(UserDTO userDTO) {
+        if (logger.isDebugEnabled()) {
+            logger.debug("Registering new user with identifier: {}", maskIdentifier(userDTO.getPhoneNumber()));
+        }
+
+        try {
+            UserDTO savedUser = createUser(userDTO);
+            savedUser.setPassword("********"); // Mask password in response
+            logger.info("User registration successful. User ID: {}", savedUser.getId());
+            return savedUser;
+        } catch (ServiceException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            logger.error("Unexpected error during user creation", ex);
+            throw new ServiceException("User creation failed", HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -228,6 +254,97 @@ public class UserServiceImpl implements UserService {
         return updatedUserDTO;
     }
 
+    @Override
+    public JwtResponse authenticate(AuthDTO authDTO) {
+        if (logger.isDebugEnabled()) {
+            logger.debug("Authentication request received for identifier: {}",
+                    maskIdentifier(authDTO.getPhoneNumberOrEmail()));
+        }
+
+        AuthDTO sanitizedDTO = InputValidationAndSanitizationService.validateAndSanitize(authDTO);
+        UserDTO user = authenticate(sanitizedDTO.getPhoneNumberOrEmail(), sanitizedDTO.getPassword());
+
+        String role = user.getRoleName() != null ? user.getRoleName().name() : "";
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("roles", role.isEmpty() ? List.of() : List.of(role));
+        claims.put("id", user.getId());
+        // dont store in jwt. In jwt only add important info like id, role etc.
+        // even if user updates info we dont need to refresh jwt
+        // user directly fetch latest details by id this is the main purpose to remove
+        // other details
+        // claims.put("email", user.getEmail());
+        // claims.put("name", user.getName());//dont store in jwt
+
+        String token = jwtUtil.generateAccessToken(claims, user.getPhoneNumber());
+        String refreshToken = jwtUtil.generateRefreshToken(user.getPhoneNumber());
+
+        // Save refresh token for later validation
+        // refreshTokenService.saveRefreshToken(refreshToken, user.getUsername());
+
+        if (logger.isDebugEnabled()) {
+            logger.debug("JWT token generated for user: {}", maskIdentifier(user.getPhoneNumber()));
+        }
+
+        return new JwtResponse(token, refreshToken, user.getEmail(), user.getName(),
+                role, user.getEmail(), user.getProfilePictureUrl(), user.getId());
+    }
+
+    private UserDTO authenticate(String username, String password) throws ServiceException {
+        try {
+            if (logger.isDebugEnabled()) {
+                logger.debug("Attempting authentication for user: {}", maskIdentifier(username));
+            }
+
+            UserDTO user = getUserByPhoneNumberOrEmail(username);
+            if (!passwordEncoder.matches(password, user.getPassword())) {
+                logger.warn("Authentication failed - invalid credentials for user: {}", maskIdentifier(username));
+                throw new ServiceException("INVALID_CREDENTIALS", HttpStatus.UNAUTHORIZED);
+            }
+
+            if (logger.isDebugEnabled()) {
+                logger.debug("Authentication successful for user: {}", maskIdentifier(username));
+            }
+            return user;
+        } catch (ServiceException e) {
+            logger.warn("Authentication failed - invalid credentials for user: {}", maskIdentifier(username));
+            throw new ServiceException("INVALID_CREDENTIALS", HttpStatus.UNAUTHORIZED);
+        }
+    }
+
+    @Override
+    public JwtResponse refreshToken(RefreshTokenRequest request) {
+        if (request == null || isBlank(request.getRefreshToken())) {
+            throw new ServiceException("Refresh token is required", HttpStatus.BAD_REQUEST);
+        }
+
+        String refreshToken = request.getRefreshToken();
+        String username = jwtUtil.extractUsername(refreshToken);
+        if (isBlank(username)) {
+            throw new InvalidTokenException("Refresh token validation failed - username not found");
+        }
+
+        UserDTO user = getUserForRefreshToken(username);
+        String role = user.getRoleName() != null ? user.getRoleName().name() : "";
+
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("roles", role.isEmpty() ? List.of() : List.of(role));
+        claims.put("id", user.getId());
+
+        String newToken = jwtUtil.generateAccessToken(claims, user.getPhoneNumber());
+        logger.info("New JWT token generated via refresh for user ID: {}", user.getId());
+
+        return new JwtResponse(newToken, refreshToken, user.getEmail(), user.getName(),
+                role, user.getEmail(), user.getProfilePictureUrl(), user.getId());
+    }
+
+    private UserDTO getUserForRefreshToken(String username) {
+        try {
+            return getUserByPhoneNumberOrEmail(username);
+        } catch (ServiceException ex) {
+            throw new InvalidTokenException("Refresh token validation failed - user not found", ex);
+        }
+    }
+
     private String validateForgotPasswordIdentifier(String phoneNumberOrEmail) {
         try {
             return InputSecurityUtils.secureLoginId(phoneNumberOrEmail);
@@ -297,6 +414,19 @@ public class UserServiceImpl implements UserService {
                 && password.chars().anyMatch(Character::isUpperCase)
                 && password.chars().anyMatch(Character::isLowerCase)
                 && password.chars().anyMatch(Character::isDigit);
+    }
+
+    private String maskIdentifier(String identifier) {
+        if (identifier == null)
+            return "null";
+        // mask email/phone for logs: e.g., 98****1234 or j***@domain.com
+        if (identifier.contains("@")) {
+            int idx = identifier.indexOf("@");
+            return identifier.charAt(0) + "***" + identifier.substring(idx);
+        } else if (identifier.length() > 4) {
+            return identifier.substring(0, 2) + "****" + identifier.substring(identifier.length() - 2);
+        }
+        return "****";
     }
 
     @Override

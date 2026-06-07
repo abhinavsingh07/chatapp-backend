@@ -4,7 +4,7 @@ import com.chatapp.synk.dto.AuthDTO;
 import com.chatapp.synk.dto.UserDTO;
 import com.chatapp.synk.exceptionHandler.ServiceException;
 import com.chatapp.synk.response.SuccessResponse;
-import com.chatapp.synk.security.*;
+import com.chatapp.synk.security.JwtResponse;
 import com.chatapp.synk.service.UserService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -12,14 +12,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.security.authentication.DisabledException;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-
-import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -29,15 +23,6 @@ import static org.mockito.Mockito.*;
 class AuthControllerTest {
 
     @Mock
-    private AuthenticationManager authenticationManager;
-
-    @Mock
-    private JwtUtil jwtUtil;
-
-    @Mock
-    private CustomUserDetailsService userDetailsService;
-
-    @Mock
     private UserService userService;
 
     @InjectMocks
@@ -45,7 +30,6 @@ class AuthControllerTest {
 
     private AuthDTO authDTO;
     private UserDTO userDTO;
-    private CustomUserDetails customUserDetails;
 
     @BeforeEach
     void setUp() {
@@ -59,29 +43,21 @@ class AuthControllerTest {
         userDTO.setName("John Doe");
         userDTO.setPhoneNumber("9999999999");
         userDTO.setPassword("password123");
-
-        customUserDetails = new CustomUserDetails(
-            "test@example.com",
-            "John Doe",
-            "password123",
-            List.of(new SimpleGrantedAuthority("ROLE_USER")),
-            "test@example.com",
-            "http://example.com/profile.jpg",
-            "user123"
-        );
     }
 
     @Test
     void testAuthenticate_Success() throws ServiceException {
         // Arrange
-        Authentication mockAuth = new PhoneNumberAuthenticationToken(
-            customUserDetails,
-            "password123",
-            customUserDetails.getAuthorities()
-        );
-        when(authenticationManager.authenticate(any())).thenReturn(mockAuth);
-        when(jwtUtil.generateAccessToken(anyMap(), eq("test@example.com")))
-            .thenReturn("jwt-token-12345");
+        JwtResponse jwtResponse = new JwtResponse(
+                "jwt-token-12345",
+                "refresh-token-12345",
+                "test@example.com",
+                "John Doe",
+                "ROLE_USER",
+                "test@example.com",
+                "http://example.com/profile.jpg",
+                "user123");
+        when(userService.authenticate(authDTO)).thenReturn(jwtResponse);
 
         // Act
         ResponseEntity<JwtResponse> response = authController.authenticate(authDTO);
@@ -92,30 +68,29 @@ class AuthControllerTest {
         assertEquals("jwt-token-12345", response.getBody().getJwtToken());
         assertEquals("John Doe", response.getBody().getName());
         assertEquals("test@example.com", response.getBody().getEmail());
-        verify(authenticationManager, times(1)).authenticate(any());
-        verify(jwtUtil, times(1)).generateAccessToken(anyMap(), anyString());
+        verify(userService, times(1)).authenticate(authDTO);
     }
 
     @Test
     void testAuthenticate_InvalidCredentials() {
         // Arrange
-        when(authenticationManager.authenticate(any()))
-            .thenThrow(new BadCredentialsException("Invalid credentials"));
+        when(userService.authenticate(authDTO))
+                .thenThrow(new ServiceException("INVALID_CREDENTIALS", HttpStatus.UNAUTHORIZED));
 
         // Act & Assert
         assertThrows(ServiceException.class, () -> authController.authenticate(authDTO));
-        verify(authenticationManager, times(1)).authenticate(any());
+        verify(userService, times(1)).authenticate(authDTO);
     }
 
     @Test
     void testAuthenticate_UserDisabled() {
         // Arrange
-        when(authenticationManager.authenticate(any()))
-            .thenThrow(new DisabledException("User account is disabled"));
+        when(userService.authenticate(authDTO))
+                .thenThrow(new ServiceException("USER_DISABLED", HttpStatus.FORBIDDEN));
 
         // Act & Assert
         assertThrows(ServiceException.class, () -> authController.authenticate(authDTO));
-        verify(authenticationManager, times(1)).authenticate(any());
+        verify(userService, times(1)).authenticate(authDTO);
     }
 
     @Test
@@ -126,8 +101,9 @@ class AuthControllerTest {
         savedUser.setEmail("test@example.com");
         savedUser.setName("John Doe");
         savedUser.setPhoneNumber("9999999999");
+        savedUser.setPassword("********");
 
-        when(userService.createUser(any(UserDTO.class))).thenReturn(savedUser);
+        when(userService.registerUser(any(UserDTO.class))).thenReturn(savedUser);
 
         // Act
         ResponseEntity<SuccessResponse<UserDTO>> response = authController.createUser(userDTO);
@@ -135,28 +111,21 @@ class AuthControllerTest {
         // Assert
         assertNotNull(response.getBody());
         assertTrue(response.getStatusCode().is2xxSuccessful());
-        assertEquals("200", response.getBody().getResponseCode());
+        assertEquals(HttpStatus.OK, response.getBody().getResponseCode());
         assertEquals("User created successfully", response.getBody().getMessage());
         assertEquals(1, response.getBody().getData().size());
         assertEquals("********", response.getBody().getData().get(0).getPassword()); // Password masked
-        verify(userService, times(1)).createUser(any(UserDTO.class));
+        verify(userService, times(1)).registerUser(any(UserDTO.class));
     }
 
     @Test
     void testCreateUser_UnexpectedError() {
         // Arrange
-        when(userService.createUser(any(UserDTO.class)))
-            .thenThrow(new RuntimeException("Database connection error"));
+        when(userService.registerUser(any(UserDTO.class)))
+                .thenThrow(new ServiceException("User creation failed", HttpStatus.INTERNAL_SERVER_ERROR));
 
-        // Act
-        ResponseEntity<SuccessResponse<UserDTO>> response = authController.createUser(userDTO);
-
-        // Assert
-        assertNotNull(response.getBody());
-        assertTrue(response.getStatusCode().is5xxServerError());
-        assertEquals("500", response.getBody().getResponseCode());
-        assertEquals("User creation failed", response.getBody().getMessage());
-        assertTrue(response.getBody().getData().isEmpty());
-        verify(userService, times(1)).createUser(any(UserDTO.class));
+        // Act & Assert
+        assertThrows(ServiceException.class, () -> authController.createUser(userDTO));
+        verify(userService, times(1)).registerUser(any(UserDTO.class));
     }
 }

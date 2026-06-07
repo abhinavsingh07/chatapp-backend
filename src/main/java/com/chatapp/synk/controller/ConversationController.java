@@ -32,7 +32,7 @@ public class ConversationController {
     public ResponseEntity<SuccessResponse<ConversationDTO>> create(@Valid @RequestBody ConversationDTO dto) {
         ConversationDTO created = conversationService.createConversation(dto);
         logger.info("Conversation created successfully with ID: {}", created.getId());
-        return ResponseEntity.ok(new SuccessResponse<>("201", "Conversation created", List.of(created)));
+        return ResponseEntity.ok(new SuccessResponse<>(HttpStatus.CREATED, "Conversation created", List.of(created)));
     }
 
     @GetMapping("/{id}")
@@ -42,10 +42,10 @@ public class ConversationController {
 
         if (convo != null) {
             logger.info("Conversation found with ID: {}", id);
-            return ResponseEntity.ok(new SuccessResponse<>("200", "Conversation found", List.of(convo)));
+            return ResponseEntity.ok(new SuccessResponse<>(HttpStatus.OK, "Conversation found", List.of(convo)));
         } else {
             logger.warn("Conversation not found with ID: {}", id);
-            return ResponseEntity.ok(new SuccessResponse<>("404", "Conversation not found", Collections.emptyList()));
+            return ResponseEntity.ok(new SuccessResponse<>(HttpStatus.NOT_FOUND, "Conversation not found", Collections.emptyList()));
         }
     }
 
@@ -61,7 +61,7 @@ public class ConversationController {
         }
 
         String msg = conversations.isEmpty() ? "No conversations available" : "Conversations retrieved";
-        String code = conversations.isEmpty() ? "404" : "200";
+        HttpStatus code = conversations.isEmpty() ? HttpStatus.NOT_FOUND : HttpStatus.OK;
 
         return ResponseEntity.ok(new SuccessResponse<>(code, msg, conversations));
     }
@@ -74,11 +74,11 @@ public class ConversationController {
 
         if (conversationId == null) {
             logger.error("Failed to create or fetch conversation between {} and {}", fromUserId, toUserId);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new SuccessResponse<>("500", "Failed to create or fetch conversation", null));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new SuccessResponse<>(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to create or fetch conversation", null));
         }
 
         logger.info("Conversation {} found/created successfully between {} and {}", conversationId, fromUserId, toUserId);
-        return ResponseEntity.ok(new SuccessResponse<>("200", "Conversation found/created successfully", List.of(conversationId)));
+        return ResponseEntity.ok(new SuccessResponse<>(HttpStatus.OK, "Conversation found/created successfully", List.of(conversationId)));
     }
 
     @GetMapping("/{userId}/last-message")
@@ -94,7 +94,7 @@ public class ConversationController {
         }
 
         String msg = chatList.isEmpty() ? "No conversations available" : "Conversations retrieved successfully";
-        String code = chatList.isEmpty() ? "404" : "200";
+        HttpStatus code = chatList.isEmpty() ? HttpStatus.NOT_FOUND : HttpStatus.OK;
 
         return ResponseEntity.ok(new SuccessResponse<>(code, msg, chatList));
     }

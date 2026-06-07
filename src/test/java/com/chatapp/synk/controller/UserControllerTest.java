@@ -10,6 +10,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
 import java.util.Collections;
@@ -52,7 +53,7 @@ class UserControllerTest {
         // Assert
         assertNotNull(response.getBody());
         assertTrue(response.getStatusCode().is2xxSuccessful());
-        assertEquals("200", response.getBody().getResponseCode());
+        assertEquals(HttpStatus.OK, response.getBody().getResponseCode());
         assertEquals("Users fetched successfully", response.getBody().getMessage());
         assertEquals(1, response.getBody().getData().size());
         assertEquals("John Doe", response.getBody().getData().get(0).getName());
@@ -70,7 +71,7 @@ class UserControllerTest {
         // Assert
         assertNotNull(response.getBody());
         assertTrue(response.getStatusCode().is2xxSuccessful());
-        assertEquals("404", response.getBody().getResponseCode());
+        assertEquals(HttpStatus.NOT_FOUND, response.getBody().getResponseCode());
         assertEquals("No users found", response.getBody().getMessage());
         assertTrue(response.getBody().getData().isEmpty());
         verify(userService, times(1)).getAllUsers();
@@ -87,7 +88,7 @@ class UserControllerTest {
         // Assert
         assertNotNull(response.getBody());
         assertTrue(response.getStatusCode().is2xxSuccessful());
-        assertEquals("200", response.getBody().getResponseCode());
+        assertEquals(HttpStatus.OK, response.getBody().getResponseCode());
         assertEquals("User fetched", response.getBody().getMessage());
         assertEquals(1, response.getBody().getData().size());
         assertEquals("John Doe", response.getBody().getData().get(0).getName());
@@ -106,7 +107,7 @@ class UserControllerTest {
         // Assert
         assertNotNull(response.getBody());
         assertTrue(response.getStatusCode().is2xxSuccessful());
-        assertEquals("404", response.getBody().getResponseCode());
+        assertEquals(HttpStatus.NOT_FOUND, response.getBody().getResponseCode());
         assertEquals("User not found", response.getBody().getMessage());
         assertTrue(response.getBody().getData().isEmpty());
         verify(userService, times(1)).getUserById("99");
@@ -129,7 +130,7 @@ class UserControllerTest {
         // Assert
         assertNotNull(response.getBody());
         assertTrue(response.getStatusCode().is2xxSuccessful());
-        assertEquals("200", response.getBody().getResponseCode());
+        assertEquals(HttpStatus.OK, response.getBody().getResponseCode());
         assertEquals("User updated successfully", response.getBody().getMessage());
         assertEquals(1, response.getBody().getData().size());
         assertEquals("Updated Name", response.getBody().getData().get(0).getName());
@@ -160,7 +161,7 @@ class UserControllerTest {
         // Assert
         assertNotNull(response.getBody());
         assertTrue(response.getStatusCode().is2xxSuccessful());
-        assertEquals("200", response.getBody().getResponseCode());
+        assertEquals(HttpStatus.OK, response.getBody().getResponseCode());
         assertEquals("User updated successfully", response.getBody().getMessage());
         assertEquals(1, response.getBody().getData().size());
         assertEquals("********", response.getBody().getData().get(0).getPassword());
@@ -178,7 +179,7 @@ class UserControllerTest {
         // Assert
         assertNotNull(response.getBody());
         assertTrue(response.getStatusCode().is2xxSuccessful());
-        assertEquals("200", response.getBody().getResponseCode());
+        assertEquals(HttpStatus.OK, response.getBody().getResponseCode());
         assertEquals("User deleted successfully", response.getBody().getMessage());
         assertTrue(response.getBody().getData().isEmpty());
         verify(userService, times(1)).deleteUser("1");
@@ -195,7 +196,7 @@ class UserControllerTest {
         // Assert
         assertNotNull(response.getBody());
         assertTrue(response.getStatusCode().is2xxSuccessful());
-        assertEquals("200", response.getBody().getResponseCode());
+        assertEquals(HttpStatus.OK, response.getBody().getResponseCode());
         assertEquals("User statuses fetched", response.getBody().getMessage());
         assertEquals(1, response.getBody().getData().size());
         verify(userService, times(1)).getLastActiveUserStatus("1");
@@ -209,7 +210,7 @@ class UserControllerTest {
         // Assert
         assertNotNull(response.getBody());
         assertTrue(response.getStatusCode().is2xxSuccessful());
-        assertEquals("400", response.getBody().getResponseCode());
+        assertEquals(HttpStatus.BAD_REQUEST, response.getBody().getResponseCode());
         assertEquals("No user ID provided", response.getBody().getMessage());
         assertTrue(response.getBody().getData().isEmpty());
     }
@@ -222,7 +223,7 @@ class UserControllerTest {
         // Assert
         assertNotNull(response.getBody());
         assertTrue(response.getStatusCode().is2xxSuccessful());
-        assertEquals("400", response.getBody().getResponseCode());
+        assertEquals(HttpStatus.BAD_REQUEST, response.getBody().getResponseCode());
         assertEquals("No user ID provided", response.getBody().getMessage());
         assertTrue(response.getBody().getData().isEmpty());
     }
@@ -238,7 +239,7 @@ class UserControllerTest {
         // Assert
         assertNotNull(response.getBody());
         assertTrue(response.getStatusCode().is2xxSuccessful());
-        assertEquals("404", response.getBody().getResponseCode());
+        assertEquals(HttpStatus.NOT_FOUND, response.getBody().getResponseCode());
         assertEquals("No status found", response.getBody().getMessage());
         assertTrue(response.getBody().getData().isEmpty());
         verify(userService, times(1)).getLastActiveUserStatus("99");
