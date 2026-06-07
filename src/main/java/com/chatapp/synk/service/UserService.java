@@ -1,5 +1,6 @@
 package com.chatapp.synk.service;
 
+import com.chatapp.synk.dto.AuthDTO;
 import com.chatapp.synk.dto.UserDTO;
 import com.chatapp.synk.dto.UserStatusDTO;
 
@@ -16,6 +17,8 @@ public interface UserService {
     UserDTO createUser(UserDTO userDTO);
 
     UserDTO updateUser(String userId, UserDTO userDTO);
+
+    UserDTO forgotPassword(AuthDTO authDTO);
 
     void deleteUser(String userId);
 

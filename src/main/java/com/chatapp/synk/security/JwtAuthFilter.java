@@ -40,7 +40,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             "/auth/authenticate",
             "/auth/register",
             "/auth/refresh",
-            "/auth/logout");
+            "/auth/logout",
+            "/auth/forgot-password");
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
@@ -97,12 +98,14 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
                 } catch (InvalidTokenException ex) {
                     SecurityContextHolder.clearContext();
-                    AuthenticationException authEx = new BadCredentialsException("JWT token validation failed: " + ex.getMessage());
+                    AuthenticationException authEx = new BadCredentialsException(
+                            "JWT token validation failed: " + ex.getMessage());
                     jwtAuthEntryPoint.commence(request, response, authEx);
                     return; // Important: return here to prevent further filter chain execution
                 } catch (Exception e) {
                     SecurityContextHolder.clearContext();
-                    AuthenticationException authEx = new BadCredentialsException("JWT token validation failed: " + e.getMessage());
+                    AuthenticationException authEx = new BadCredentialsException(
+                            "JWT token validation failed: " + e.getMessage());
                     jwtAuthEntryPoint.commence(request, response, authEx);
                     return; // Important: return here
                 }

@@ -151,6 +151,12 @@ public class AuthController {
         }
     }
 
+    @PostMapping("/forgot-password")
+    public ResponseEntity<SuccessResponse<?>> forgotPassword(@Valid @RequestBody AuthDTO authDTO) {
+        userService.forgotPassword(authDTO);
+        return ResponseEntity.ok(new SuccessResponse<>("200", "Password updated successfully", List.of()));
+    }
+
     private Authentication authenticate(String username, String password) throws ServiceException {
         try {
             if (logger.isDebugEnabled()) {

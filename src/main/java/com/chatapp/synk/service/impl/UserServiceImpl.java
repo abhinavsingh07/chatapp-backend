@@ -1,6 +1,7 @@
 package com.chatapp.synk.service.impl;
 
 import com.chatapp.synk.chat.redis.RedisSessionStore;
+import com.chatapp.synk.dto.AuthDTO;
 import com.chatapp.synk.dto.UserDTO;
 import com.chatapp.synk.dto.UserStatusDTO;
 import com.chatapp.synk.entity.Contact;
@@ -194,6 +195,63 @@ public class UserServiceImpl implements UserService {
         } catch (Exception ex) {
             logger.error("Error while updating user with ID: {}", userId, ex);
             throw new ServiceException(ex.getMessage(), HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    @Override
+    @Transactional
+    public UserDTO forgotPassword(AuthDTO authDTO) {
+        if (authDTO == null) {
+            throw new ServiceException("Forgot password request data is required", HttpStatus.BAD_REQUEST);
+        }
+
+        String phoneNumberOrEmail = validateForgotPasswordIdentifier(authDTO.getPhoneNumberOrEmail());
+        String newPassword = validateForgotPasswordPassword(authDTO.getPassword());
+
+        if (!isStrongPassword(newPassword)) {
+            throw new ServiceException("Password must be at least 8 characters and include uppercase, lowercase, and a digit", HttpStatus.BAD_REQUEST);
+        }
+         // TODO: Validate OTP before allowing password reset.
+
+        // TODO: Reject password reset when OTP is missing, expired, or already used.
+
+        UserDTO existingUser = getUserForForgotPassword(phoneNumberOrEmail);
+        User user = userRepository.findById(existingUser.getId())
+                .orElseThrow(() -> new ServiceException("User not found with ID", HttpStatus.NOT_FOUND));
+
+        user.setPassword(passwordEncoder.encode(newPassword));
+        User updatedUser = userRepository.save(user);
+        logger.info("Forgot password reset completed for user ID: {}", updatedUser.getId());
+
+        UserDTO updatedUserDTO = Mapper.mapToUserDTO(updatedUser);
+        updatedUserDTO.setPassword("********");
+        return updatedUserDTO;
+    }
+
+    private String validateForgotPasswordIdentifier(String phoneNumberOrEmail) {
+        try {
+            return InputSecurityUtils.secureLoginId(phoneNumberOrEmail);
+        } catch (SecurityException ex) {
+            throw new ServiceException("Phone number or email must be valid", HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    private String validateForgotPasswordPassword(String password) {
+        try {
+            return InputSecurityUtils.securePassword(password);
+        } catch (SecurityException ex) {
+            throw new ServiceException(ex.getMessage(), HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    private UserDTO getUserForForgotPassword(String phoneNumberOrEmail) {
+        try {
+            return getUserByPhoneNumberOrEmail(phoneNumberOrEmail);
+        } catch (ServiceException ex) {
+            if (HttpStatus.NOT_FOUND.equals(ex.getStatus())) {
+                throw new ServiceException("No account found for provided phone number or email", HttpStatus.NOT_FOUND);
+            }
+            throw ex;
         }
     }
 
