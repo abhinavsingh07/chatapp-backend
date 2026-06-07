@@ -138,6 +138,36 @@ class UserControllerTest {
     }
 
     @Test
+    void testUpdateUser_WithPasswordChange_Success() {
+        // Arrange
+        UserDTO passwordChangeRequest = new UserDTO();
+        passwordChangeRequest.setOldPassword("OldPassword1");
+        passwordChangeRequest.setNewPassword("NewPassword1");
+        passwordChangeRequest.setConfirmPassword("NewPassword1");
+
+        UserDTO updatedUser = new UserDTO();
+        updatedUser.setId("1");
+        updatedUser.setName("John Doe");
+        updatedUser.setEmail("john@example.com");
+        updatedUser.setPhoneNumber("9999999999");
+        updatedUser.setPassword("********");
+
+        when(userService.updateUser("1", passwordChangeRequest)).thenReturn(updatedUser);
+
+        // Act
+        ResponseEntity<SuccessResponse<UserDTO>> response = userController.updateUser("1", passwordChangeRequest);
+
+        // Assert
+        assertNotNull(response.getBody());
+        assertTrue(response.getStatusCode().is2xxSuccessful());
+        assertEquals("200", response.getBody().getResponseCode());
+        assertEquals("User updated successfully", response.getBody().getMessage());
+        assertEquals(1, response.getBody().getData().size());
+        assertEquals("********", response.getBody().getData().get(0).getPassword());
+        verify(userService, times(1)).updateUser("1", passwordChangeRequest);
+    }
+
+    @Test
     void testDeleteUser_Success() {
         // Arrange
         doNothing().when(userService).deleteUser("1");

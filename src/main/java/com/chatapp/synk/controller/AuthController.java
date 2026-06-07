@@ -9,9 +9,12 @@ import com.chatapp.synk.exceptionHandler.ServiceException;
 import com.chatapp.synk.response.SuccessResponse;
 import com.chatapp.synk.security.*;
 import com.chatapp.synk.service.UserService;
+
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -21,6 +24,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import com.chatapp.synk.response.ErrorResponse;
 
 import java.util.HashMap;
 import java.util.List;
@@ -119,14 +123,17 @@ public class AuthController {
             // Return new token with existing refresh token
             return ResponseEntity.ok(new JwtResponse(newToken, refreshToken, user.getEmail(), user.getName(),
                     user.getUserRoles(), user.getEmail(), user.getProfilePictureUrl(), user.getId()));
+
         } catch (InvalidTokenException e) {
             logger.warn("Token refresh failed: {}", e.getMessage());
-            return ResponseEntity.status(401).body(new SuccessResponse<>("401",
-                    "Refresh token validation failed error msg: " + e.getMessage(), List.of()));
+            return ResponseEntity.status(HttpServletResponse.SC_UNAUTHORIZED)
+                    .body(new ErrorResponse<>(HttpServletResponse.SC_UNAUTHORIZED, HttpStatus.UNAUTHORIZED,
+                            "Refresh token validation failed error msg: " + e.getMessage()));
         } catch (Exception e) {
             logger.error("Error refreshing token: {}", e.getMessage());
-            return ResponseEntity.status(500).body(new SuccessResponse<>("500",
-                    "Refresh token validation failed error msg: " + e.getMessage(), List.of()));
+            return ResponseEntity.status(HttpServletResponse.SC_INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse<>(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, HttpStatus.UNAUTHORIZED,
+                            "Refresh token validation failed error msg: " + e.getMessage()));
         }
     }
 
@@ -135,7 +142,7 @@ public class AuthController {
         try {
             // String refreshToken = request.getRefreshToken();
             // refreshTokenService.revokeRefreshToken(refreshToken);
-            //to do method
+            // to do method
             logger.info("User logged out successfully");
             return ResponseEntity.ok(new SuccessResponse<>("200", "Logged out successfully", List.of()));
         } catch (Exception e) {

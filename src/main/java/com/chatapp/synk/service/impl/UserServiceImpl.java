@@ -166,21 +166,79 @@ public class UserServiceImpl implements UserService {
             logger.warn("User not found while updating. ID: {}", validId);
             throw new ServiceException("User not found with ID", HttpStatus.NOT_FOUND);
         }
+        if (userDTO == null) {
+            throw new ServiceException("User update data is required", HttpStatus.BAD_REQUEST);
+        }
 
         try {
-            UserDTO validDTO = InputValidationAndSanitizationService.validateAndSanitize(userDTO);
             User user = optionalUser.get();
-            user.setName(validDTO.getName());
-            user.setProfilePictureUrl(validDTO.getProfilePictureUrl());
-            user.setAbout(validDTO.getAbout());
+
+            if (userDTO.getName() != null) {
+                user.setName(InputSecurityUtils.secureName(userDTO.getName()));
+            }
+            if (userDTO.getProfilePictureUrl() != null) {
+                user.setProfilePictureUrl(userDTO.getProfilePictureUrl());//for now no check
+            }
+            if (userDTO.getAbout() != null) {
+                user.setAbout(InputSecurityUtils.secureAbout(userDTO.getAbout()));
+            }
+            updatePasswordIfRequested(user, userDTO);
 
             User updatedUser = userRepository.save(user);
             logger.info("User updated successfully. ID: {}", updatedUser.getId());
-            return Mapper.mapToUserDTO(updatedUser);
+            UserDTO updatedUserDTO = Mapper.mapToUserDTO(updatedUser);
+            updatedUserDTO.setPassword("********");
+            return updatedUserDTO;
+        } catch (ServiceException ex) {
+            throw ex;
         } catch (Exception ex) {
             logger.error("Error while updating user with ID: {}", userId, ex);
-            throw new ServiceException(ex.getMessage());
+            throw new ServiceException(ex.getMessage(), HttpStatus.BAD_REQUEST);
         }
+    }
+
+    private void updatePasswordIfRequested(User user, UserDTO userDTO) {
+        boolean passwordUpdateRequested = !isBlank(userDTO.getOldPassword())
+                || !isBlank(userDTO.getNewPassword())
+                || !isBlank(userDTO.getConfirmPassword());
+
+        if (!passwordUpdateRequested) {
+            return;
+        }
+
+        String oldPassword = InputSecurityUtils.securePassword(userDTO.getOldPassword());
+        String newPassword = InputSecurityUtils.securePassword(userDTO.getNewPassword());
+        String confirmPassword = InputSecurityUtils.securePassword(userDTO.getConfirmPassword());
+
+        if (isBlank(oldPassword) || isBlank(newPassword) || isBlank(confirmPassword)) {
+            throw new ServiceException("Old password, new password, and confirm password are required", HttpStatus.BAD_REQUEST);
+        }
+        if (!passwordEncoder.matches(oldPassword, user.getPassword())) {
+            throw new ServiceException("Old password is incorrect", HttpStatus.BAD_REQUEST);
+        }
+        if (!newPassword.equals(confirmPassword)) {
+            throw new ServiceException("New password and confirm password do not match", HttpStatus.BAD_REQUEST);
+        }
+        if (!isStrongPassword(newPassword)) {
+            throw new ServiceException("New password must be at least 8 characters and include uppercase, lowercase, and a digit", HttpStatus.BAD_REQUEST);
+        }
+        if (oldPassword.equals(newPassword)) {
+            throw new ServiceException("New password must be different from old password", HttpStatus.BAD_REQUEST);
+        }
+
+        user.setPassword(passwordEncoder.encode(newPassword));
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
+    }
+
+    private boolean isStrongPassword(String password) {
+        return password != null
+                && password.length() >= 8
+                && password.chars().anyMatch(Character::isUpperCase)
+                && password.chars().anyMatch(Character::isLowerCase)
+                && password.chars().anyMatch(Character::isDigit);
     }
 
     @Override
