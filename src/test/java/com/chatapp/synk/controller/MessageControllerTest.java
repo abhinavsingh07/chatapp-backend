@@ -10,6 +10,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
 import java.util.Collections;
@@ -54,7 +55,7 @@ class MessageControllerTest {
         // Assert
         assertNotNull(response.getBody());
         assertTrue(response.getStatusCode().is2xxSuccessful());
-        assertEquals("200", response.getBody().getResponseCode());
+        assertEquals(HttpStatus.OK, response.getBody().getResponseCode());
         assertEquals("Messages fetched successfully", response.getBody().getMessage());
         assertEquals(1, response.getBody().getData().size());
         assertEquals("Hello! How are you?", response.getBody().getData().get(0).getContent());
@@ -74,7 +75,7 @@ class MessageControllerTest {
         // Assert
         assertNotNull(response.getBody());
         assertTrue(response.getStatusCode().is2xxSuccessful());
-        assertEquals("200", response.getBody().getResponseCode());
+        assertEquals(HttpStatus.OK, response.getBody().getResponseCode());
         assertEquals("Messages fetched successfully", response.getBody().getMessage());
         assertTrue(response.getBody().getData().isEmpty());
         verify(messageService, times(1)).getMessagesByConversationId("convo999");
@@ -101,7 +102,7 @@ class MessageControllerTest {
         // Assert
         assertNotNull(response.getBody());
         assertTrue(response.getStatusCode().is2xxSuccessful());
-        assertEquals("200", response.getBody().getResponseCode());
+        assertEquals(HttpStatus.OK, response.getBody().getResponseCode());
         assertEquals("Unread messages fetched", response.getBody().getMessage());
         assertEquals(1, response.getBody().getData().size());
         assertEquals("Unread message", response.getBody().getData().get(0).getContent());
@@ -121,7 +122,7 @@ class MessageControllerTest {
         // Assert
         assertNotNull(response.getBody());
         assertTrue(response.getStatusCode().is2xxSuccessful());
-        assertEquals("200", response.getBody().getResponseCode());
+        assertEquals(HttpStatus.OK, response.getBody().getResponseCode());
         assertEquals("Unread messages fetched", response.getBody().getMessage());
         assertTrue(response.getBody().getData().isEmpty());
         verify(messageService, times(1)).getUnreadMessagesForReceiver("convo123", "user2");
@@ -153,7 +154,7 @@ class MessageControllerTest {
         // Assert
         assertNotNull(response.getBody());
         assertTrue(response.getStatusCode().is2xxSuccessful());
-        assertEquals("200", response.getBody().getResponseCode());
+        assertEquals(HttpStatus.OK, response.getBody().getResponseCode());
         assertEquals("Message sent successfully", response.getBody().getMessage());
         assertEquals(1, response.getBody().getData().size());
         assertEquals("msg3", response.getBody().getData().get(0).getId());
@@ -172,7 +173,7 @@ class MessageControllerTest {
         // Assert
         assertNotNull(response.getBody());
         assertTrue(response.getStatusCode().is2xxSuccessful());
-        assertEquals("200", response.getBody().getResponseCode());
+        assertEquals(HttpStatus.OK, response.getBody().getResponseCode());
         assertEquals("Message marked as read", response.getBody().getMessage());
         assertTrue(response.getBody().getData().isEmpty());
         verify(messageService, times(1)).markMessageAsRead("msg1");

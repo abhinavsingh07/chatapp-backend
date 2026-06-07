@@ -11,6 +11,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
 import java.util.Collections;
@@ -59,7 +60,7 @@ class ContactControllerTest {
         // Assert
         assertNotNull(response.getBody());
         assertTrue(response.getStatusCode().is2xxSuccessful());
-        assertEquals("200", response.getBody().getResponseCode());
+        assertEquals(HttpStatus.OK, response.getBody().getResponseCode());
         assertEquals("Contacts fetched successfully", response.getBody().getMessage());
         assertEquals(1, response.getBody().getData().size());
         assertEquals("Alice Johnson", response.getBody().getData().get(0).getName());
@@ -78,7 +79,7 @@ class ContactControllerTest {
         // Assert
         assertNotNull(response.getBody());
         assertTrue(response.getStatusCode().is2xxSuccessful());
-        assertEquals("404", response.getBody().getResponseCode());
+        assertEquals(HttpStatus.NOT_FOUND, response.getBody().getResponseCode());
         assertEquals("No contacts found", response.getBody().getMessage());
         assertTrue(response.getBody().getData().isEmpty());
         verify(contactService, times(1)).getContacts(userId);
@@ -96,7 +97,7 @@ class ContactControllerTest {
         // Assert
         assertNotNull(response.getBody());
         assertTrue(response.getStatusCode().is2xxSuccessful());
-        assertEquals("200", response.getBody().getResponseCode());
+        assertEquals(HttpStatus.OK, response.getBody().getResponseCode());
         assertEquals("Contact created successfully", response.getBody().getMessage());
         assertEquals(1, response.getBody().getData().size());
         assertEquals(ContactStatus.ADDED, response.getBody().getData().get(0).getContactStatus());
@@ -115,7 +116,7 @@ class ContactControllerTest {
         // Assert
         assertNotNull(response.getBody());
         assertTrue(response.getStatusCode().is2xxSuccessful());
-        assertEquals("200", response.getBody().getResponseCode());
+        assertEquals(HttpStatus.OK, response.getBody().getResponseCode());
         assertEquals("Invitation sent successfully", response.getBody().getMessage());
         assertEquals(1, response.getBody().getData().size());
         assertEquals(ContactStatus.INVITED, response.getBody().getData().get(0).getContactStatus());
@@ -134,7 +135,7 @@ class ContactControllerTest {
         // Assert
         assertNotNull(response.getBody());
         assertTrue(response.getStatusCode().is2xxSuccessful());
-        assertEquals("200", response.getBody().getResponseCode());
+        assertEquals(HttpStatus.OK, response.getBody().getResponseCode());
         assertEquals("Contact deleted successfully", response.getBody().getMessage());
         verify(contactService, times(1)).deleteContact(contactId);
     }

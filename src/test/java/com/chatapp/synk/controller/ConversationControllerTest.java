@@ -11,6 +11,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
 import java.util.Collections;
@@ -54,7 +55,7 @@ class ConversationControllerTest {
         // Assert
         assertNotNull(response.getBody());
         assertTrue(response.getStatusCode().is2xxSuccessful());
-        assertEquals("201", response.getBody().getResponseCode());
+        assertEquals(HttpStatus.CREATED, response.getBody().getResponseCode());
         assertEquals("Conversation created", response.getBody().getMessage());
         assertEquals(1, response.getBody().getData().size());
         assertEquals("convo123", response.getBody().getData().get(0).getId());
@@ -74,7 +75,7 @@ class ConversationControllerTest {
         // Assert
         assertNotNull(response.getBody());
         assertTrue(response.getStatusCode().is2xxSuccessful());
-        assertEquals("200", response.getBody().getResponseCode());
+        assertEquals(HttpStatus.OK, response.getBody().getResponseCode());
         assertEquals("Conversation found", response.getBody().getMessage());
         assertEquals(1, response.getBody().getData().size());
         assertEquals("convo123", response.getBody().getData().get(0).getId());
@@ -94,7 +95,7 @@ class ConversationControllerTest {
         // Assert
         assertNotNull(response.getBody());
         assertTrue(response.getStatusCode().is2xxSuccessful());
-        assertEquals("404", response.getBody().getResponseCode());
+        assertEquals(HttpStatus.NOT_FOUND, response.getBody().getResponseCode());
         assertEquals("Conversation not found", response.getBody().getMessage());
         assertTrue(response.getBody().getData().isEmpty());
         verify(conversationService, times(1)).getConversationById("nonexistent");
@@ -112,7 +113,7 @@ class ConversationControllerTest {
         // Assert
         assertNotNull(response.getBody());
         assertTrue(response.getStatusCode().is2xxSuccessful());
-        assertEquals("200", response.getBody().getResponseCode());
+        assertEquals(HttpStatus.OK, response.getBody().getResponseCode());
         assertEquals("Conversations retrieved", response.getBody().getMessage());
         assertEquals(1, response.getBody().getData().size());
         verify(conversationService, times(1)).findAll();
@@ -130,7 +131,7 @@ class ConversationControllerTest {
         // Assert
         assertNotNull(response.getBody());
         assertTrue(response.getStatusCode().is2xxSuccessful());
-        assertEquals("404", response.getBody().getResponseCode());
+        assertEquals(HttpStatus.NOT_FOUND, response.getBody().getResponseCode());
         assertEquals("No conversations available", response.getBody().getMessage());
         assertTrue(response.getBody().getData().isEmpty());
         verify(conversationService, times(1)).findAll();
@@ -149,7 +150,7 @@ class ConversationControllerTest {
         // Assert
         assertNotNull(response.getBody());
         assertTrue(response.getStatusCode().is2xxSuccessful());
-        assertEquals("200", response.getBody().getResponseCode());
+        assertEquals(HttpStatus.OK, response.getBody().getResponseCode());
         assertEquals("Conversation found/created successfully", response.getBody().getMessage());
         assertEquals(1, response.getBody().getData().size());
         assertEquals("convo456", response.getBody().getData().get(0));
@@ -169,7 +170,7 @@ class ConversationControllerTest {
         // Assert
         assertNotNull(response.getBody());
         assertTrue(response.getStatusCode().is5xxServerError());
-        assertEquals("500", response.getBody().getResponseCode());
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getBody().getResponseCode());
         assertEquals("Failed to create or fetch conversation", response.getBody().getMessage());
         assertNull(response.getBody().getData());
         verify(conversationService, times(1)).getOrCreateConversation("user1", "user2");
@@ -190,7 +191,7 @@ class ConversationControllerTest {
         // Assert
         assertNotNull(response.getBody());
         assertTrue(response.getStatusCode().is2xxSuccessful());
-        assertEquals("200", response.getBody().getResponseCode());
+        assertEquals(HttpStatus.OK, response.getBody().getResponseCode());
         assertEquals("Conversations retrieved successfully", response.getBody().getMessage());
         assertEquals(1, response.getBody().getData().size());
         verify(conversationLastMessageService, times(1)).findUserConversations("user1");
@@ -209,7 +210,7 @@ class ConversationControllerTest {
         // Assert
         assertNotNull(response.getBody());
         assertTrue(response.getStatusCode().is2xxSuccessful());
-        assertEquals("404", response.getBody().getResponseCode());
+        assertEquals(HttpStatus.NOT_FOUND, response.getBody().getResponseCode());
         assertEquals("No conversations available", response.getBody().getMessage());
         assertTrue(response.getBody().getData().isEmpty());
         verify(conversationLastMessageService, times(1)).findUserConversations("user1");
