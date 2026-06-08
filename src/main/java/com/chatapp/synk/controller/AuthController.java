@@ -4,7 +4,7 @@ import com.chatapp.synk.dto.AuthDTO;
 import com.chatapp.synk.dto.RefreshTokenRequest;
 import com.chatapp.synk.dto.UserDTO;
 import com.chatapp.synk.response.SuccessResponse;
-import com.chatapp.synk.security.JwtResponse;
+import com.chatapp.synk.security.JwtResponse; 
 import com.chatapp.synk.service.UserService;
 
 import jakarta.validation.Valid;
