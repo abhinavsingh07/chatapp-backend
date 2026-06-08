@@ -28,7 +28,7 @@ public class GlobalExceptionHandler {
     private final int HTTP_CODE_INTERNAL_SERVER_ERROR = 500;
 
     @ExceptionHandler(ServiceException.class)
-    public ResponseEntity<ErrorResponse> handleServiceException(ServiceException exception) {
+    public ResponseEntity<ErrorResponse<Void>> handleServiceException(ServiceException exception) {
         HttpStatus status = exception.getStatus() != null
                 ? exception.getStatus()
                 : HttpStatus.INTERNAL_SERVER_ERROR;
@@ -36,27 +36,27 @@ public class GlobalExceptionHandler {
         logger.error("A ServiceException occurred: {}", exception.getMessage());
 
         return ResponseEntity.status(status)
-                .body(new ErrorResponse(
+                .body(new ErrorResponse<Void>(
                         status.value(),
                         status,
                         exception.getMessage()));
     }
 
     @ExceptionHandler(InvalidTokenException.class)
-    public ResponseEntity<ErrorResponse> handleInvalidToken(InvalidTokenException ex) {
+    public ResponseEntity<ErrorResponse<Void>> handleInvalidToken(InvalidTokenException ex) {
         logger.warn("Invalid token: {}", ex.getMessage());
 
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(new ErrorResponse(
+                .body(new ErrorResponse<Void>(
                         HttpStatus.UNAUTHORIZED.value(),
                         HttpStatus.UNAUTHORIZED,
                         ex.getMessage()));
     }
 
     @ExceptionHandler(Exception.class) // catches Runtime Exception as well
-    public ResponseEntity<ErrorResponse> handleOtherExceptions(Exception ex) {
+    public ResponseEntity<ErrorResponse<Void>> handleOtherExceptions(Exception ex) {
         logger.error("Exception occured: {}", ex.getMessage());
-        ErrorResponse errResp = new ErrorResponse();
+        ErrorResponse<Void> errResp = new ErrorResponse<Void>();
         errResp.setResponseCode(HTTP_CODE_INTERNAL_SERVER_ERROR);
         errResp.setErrorMessage(ex.getMessage());
         logger.error("An unexpected Exception occurred: {}", ex.getMessage());
@@ -64,31 +64,33 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ErrorResponse> processFieldValidationException(final MethodArgumentNotValidException ex) {
+    public ResponseEntity<ErrorResponse<BeanValidationErrors>> processFieldValidationException(
+            final MethodArgumentNotValidException ex) {
         logger.warn("Validation failed: {} field(s)", ex.getBindingResult().getFieldErrorCount());
 
         List<BeanValidationErrors> errors = ex.getBindingResult().getFieldErrors().stream()
                 .map(i -> new BeanValidationErrors(i.getField(), i.getDefaultMessage(), i.getRejectedValue()))
                 .collect(Collectors.toList());
 
-        ErrorResponse<BeanValidationErrors> resp = new ErrorResponse();
+        ErrorResponse<BeanValidationErrors> resp = new ErrorResponse<BeanValidationErrors>();
         resp.setResponseCode(HTTP_CODE_BAD_REQUEST);
         resp.setError(HttpStatus.BAD_REQUEST);
         resp.setErrors(errors);
 
-        return new ResponseEntity<>(resp, HttpStatus.BAD_REQUEST);
+        return new ResponseEntity<ErrorResponse<BeanValidationErrors>>(resp, HttpStatus.BAD_REQUEST);
     }
 
     @ExceptionHandler(ConstraintViolationException.class)
-    public ResponseEntity<ErrorResponse> onConstraintValidationException(ConstraintViolationException e) {
+    public ResponseEntity<ErrorResponse<ConstraintValidationErrors>> onConstraintValidationException(
+            ConstraintViolationException e) {
         logger.warn("Constraint violations detected: {}", e.getConstraintViolations().size());
 
         List<ConstraintValidationErrors> errors = new ArrayList<>();
-        for (ConstraintViolation violation : e.getConstraintViolations()) {
+        for (ConstraintViolation<?> violation : e.getConstraintViolations()) {
             errors.add(new ConstraintValidationErrors(violation.getPropertyPath().toString(), violation.getMessage()));
         }
 
-        ErrorResponse<ConstraintValidationErrors> resp = new ErrorResponse();
+        ErrorResponse<ConstraintValidationErrors> resp = new ErrorResponse<ConstraintValidationErrors>();
         resp.setResponseCode(HTTP_CODE_BAD_REQUEST);
         resp.setError(HttpStatus.BAD_REQUEST);
         resp.setErrors(errors);

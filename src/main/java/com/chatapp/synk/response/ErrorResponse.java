@@ -8,6 +8,7 @@ public class ErrorResponse<T> {
     private int responseCode;
     private HttpStatus error;
     private String errorMessage;
+    private List<T> errors;
 
     public ErrorResponse(int responseCode, HttpStatus error, String errorMessage) {
         this.responseCode = responseCode;
@@ -18,8 +19,6 @@ public class ErrorResponse<T> {
     public ErrorResponse() {
         // Default constructor for deserialization
     }
-
-    private List<T> errors;
 
     public int getResponseCode() {
         return responseCode;
