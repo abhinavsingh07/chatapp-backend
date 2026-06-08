@@ -24,16 +24,13 @@ public class GlobalExceptionHandler {
 
     private static final Logger logger = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
-    private final int HTTP_CODE_BAD_REQUEST = 400;
-    private final int HTTP_CODE_INTERNAL_SERVER_ERROR = 500;
-
     @ExceptionHandler(ServiceException.class)
     public ResponseEntity<ErrorResponse<Void>> handleServiceException(ServiceException exception) {
         HttpStatus status = exception.getStatus() != null
                 ? exception.getStatus()
                 : HttpStatus.INTERNAL_SERVER_ERROR;
 
-        logger.error("A ServiceException occurred: {}", exception.getMessage());
+        logger.warn("A ServiceException occurred: {}", exception.getMessage());
 
         return ResponseEntity.status(status)
                 .body(new ErrorResponse<Void>(
@@ -57,7 +54,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse<Void>> handleOtherExceptions(Exception ex) {
         logger.error("Exception occured: {}", ex.getMessage());
         ErrorResponse<Void> errResp = new ErrorResponse<Void>();
-        errResp.setResponseCode(HTTP_CODE_INTERNAL_SERVER_ERROR);
+        errResp.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR.value());
         errResp.setErrorMessage(ex.getMessage());
         logger.error("An unexpected Exception occurred: {}", ex.getMessage());
         return new ResponseEntity<>(errResp, HttpStatus.INTERNAL_SERVER_ERROR);
@@ -73,7 +70,7 @@ public class GlobalExceptionHandler {
                 .collect(Collectors.toList());
 
         ErrorResponse<BeanValidationErrors> resp = new ErrorResponse<BeanValidationErrors>();
-        resp.setResponseCode(HTTP_CODE_BAD_REQUEST);
+        resp.setResponseCode(HttpStatus.BAD_REQUEST.value());
         resp.setError(HttpStatus.BAD_REQUEST);
         resp.setErrors(errors);
 
@@ -91,7 +88,7 @@ public class GlobalExceptionHandler {
         }
 
         ErrorResponse<ConstraintValidationErrors> resp = new ErrorResponse<ConstraintValidationErrors>();
-        resp.setResponseCode(HTTP_CODE_BAD_REQUEST);
+        resp.setResponseCode(HttpStatus.BAD_REQUEST.value());
         resp.setError(HttpStatus.BAD_REQUEST);
         resp.setErrors(errors);
 
