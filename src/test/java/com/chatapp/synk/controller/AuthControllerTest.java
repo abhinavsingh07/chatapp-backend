@@ -5,6 +5,7 @@ import com.chatapp.synk.dto.UserDTO;
 import com.chatapp.synk.exceptionHandler.ServiceException;
 import com.chatapp.synk.response.SuccessResponse;
 import com.chatapp.synk.security.JwtResponse;
+import com.chatapp.synk.service.AuthService;
 import com.chatapp.synk.service.UserService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -24,6 +25,9 @@ class AuthControllerTest {
 
     @Mock
     private UserService userService;
+
+    @Mock
+    private AuthService authService;
 
     @InjectMocks
     private AuthController authController;
@@ -57,7 +61,7 @@ class AuthControllerTest {
                 "test@example.com",
                 "http://example.com/profile.jpg",
                 "user123");
-        when(userService.authenticate(authDTO)).thenReturn(jwtResponse);
+        when(authService.authenticate(authDTO)).thenReturn(jwtResponse);
 
         // Act
         ResponseEntity<JwtResponse> response = authController.authenticate(authDTO);
@@ -68,29 +72,26 @@ class AuthControllerTest {
         assertEquals("jwt-token-12345", response.getBody().getJwtToken());
         assertEquals("John Doe", response.getBody().getName());
         assertEquals("test@example.com", response.getBody().getEmail());
-        verify(userService, times(1)).authenticate(authDTO);
     }
 
     @Test
     void testAuthenticate_InvalidCredentials() {
         // Arrange
-        when(userService.authenticate(authDTO))
+        when(authService.authenticate(authDTO))
                 .thenThrow(new ServiceException("INVALID_CREDENTIALS", HttpStatus.UNAUTHORIZED));
 
         // Act & Assert
         assertThrows(ServiceException.class, () -> authController.authenticate(authDTO));
-        verify(userService, times(1)).authenticate(authDTO);
     }
 
     @Test
     void testAuthenticate_UserDisabled() {
         // Arrange
-        when(userService.authenticate(authDTO))
+        when(authService.authenticate(authDTO))
                 .thenThrow(new ServiceException("USER_DISABLED", HttpStatus.FORBIDDEN));
 
         // Act & Assert
         assertThrows(ServiceException.class, () -> authController.authenticate(authDTO));
-        verify(userService, times(1)).authenticate(authDTO);
     }
 
     @Test

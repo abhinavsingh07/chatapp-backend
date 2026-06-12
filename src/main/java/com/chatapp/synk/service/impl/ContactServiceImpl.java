@@ -115,8 +115,8 @@ public class ContactServiceImpl implements ContactService {
                     @CachePut(value = "contactCache", key = "#result.id", unless = "#result == null") })
     public ContactDTO addContact(ContactDTO dto) {
         ContactDTO validDTO = InputValidationAndSanitizationService.validateAndSanitize(dto);
-        String userId = validDTO.getUserId();
-        String email = validDTO.getEmail();
+        String userId = validDTO.getUserId();//userid is of who is adding contact
+        String email = validDTO.getEmail();//email is of user to add
 
         logger.info("Processing addContact request for userId={} with email={}", userId, email);
 

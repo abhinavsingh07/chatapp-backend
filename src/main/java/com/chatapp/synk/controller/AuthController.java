@@ -4,8 +4,9 @@ import com.chatapp.synk.dto.AuthDTO;
 import com.chatapp.synk.dto.RefreshTokenRequest;
 import com.chatapp.synk.dto.UserDTO;
 import com.chatapp.synk.response.SuccessResponse;
-import com.chatapp.synk.security.JwtResponse; 
-import com.chatapp.synk.service.UserService; 
+import com.chatapp.synk.security.JwtResponse;
+import com.chatapp.synk.service.AuthService;
+import com.chatapp.synk.service.UserService;
 
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
@@ -17,33 +18,35 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List; 
+import java.util.List;
 
 @RestController
 @RequestMapping("/auth")
 public class AuthController {
     private static final Logger logger = LoggerFactory.getLogger(AuthController.class);
 
+    private final AuthService authService;
     private final UserService userService;
 
-    public AuthController(UserService userService) {
+    public AuthController(AuthService authService, UserService userService) {
+        this.authService = authService;
         this.userService = userService;
     }
 
     @PostMapping("/authenticate")
     public ResponseEntity<JwtResponse> authenticate(@Valid @RequestBody AuthDTO authDTO) {
-        return ResponseEntity.ok(userService.authenticate(authDTO));
+        return ResponseEntity.ok(authService.authenticate(authDTO));
     }
 
     @PostMapping("/refresh")
     public ResponseEntity<JwtResponse> refreshToken(@Valid @RequestBody RefreshTokenRequest request) {
         logger.info("Refresh Token request received.");
-        return ResponseEntity.ok(userService.refreshToken(request));
+        return ResponseEntity.ok(authService.refreshToken(request));
     }
 
     @PostMapping("/forgot-password")
     public ResponseEntity<SuccessResponse<?>> forgotPassword(@Valid @RequestBody AuthDTO authDTO) {
-        userService.forgotPassword(authDTO);
+        authService.forgotPassword(authDTO);
         return ResponseEntity.ok(new SuccessResponse<>(HttpStatus.OK, "Password updated successfully", List.of()));
     }
 

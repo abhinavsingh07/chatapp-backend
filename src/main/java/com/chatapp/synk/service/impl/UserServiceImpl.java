@@ -22,6 +22,9 @@ import com.chatapp.synk.security_validator.InputValidationAndSanitizationService
 import com.chatapp.synk.security_validator.UserInputValidator;
 import com.chatapp.synk.service.UserService;
 import com.chatapp.synk.util.Mapper;
+import com.chatapp.synk.util.PasswordUtil;
+import com.chatapp.synk.util.StringUtil;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.CacheEvict;
@@ -49,11 +52,11 @@ public class UserServiceImpl implements UserService {
     private final JwtUtil jwtUtil;
 
     public UserServiceImpl(UserRepository userRepository,
-                           PasswordEncoder passwordEncoder,
-                           ContactRepository contactRepository,
-                           UserRoleRepository userRoleRepository,
-                           RedisSessionStore redisSessionStore,
-                           JwtUtil jwtUtil) {
+            PasswordEncoder passwordEncoder,
+            ContactRepository contactRepository,
+            UserRoleRepository userRoleRepository,
+            RedisSessionStore redisSessionStore,
+            JwtUtil jwtUtil) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.contactRepository = contactRepository;
@@ -123,43 +126,34 @@ public class UserServiceImpl implements UserService {
     }, evict = {
             @CacheEvict(value = "userListCache", key = "'allUsers'", beforeInvocation = true)
     })
-    public UserDTO createUser(UserDTO userDTO) {
-        logger.info("Creating new user with phone: {}", userDTO.getPhoneNumber());
+    public UserDTO registerUser(UserDTO userDTO) {
+        if (logger.isDebugEnabled()) {
+            logger.debug("Registering new user with identifier: {}", maskIdentifier(userDTO.getPhoneNumber()));
+        }
         try {
             UserDTO validatedDTO = InputValidationAndSanitizationService.validateAndSanitize(userDTO);
             User user = Mapper.mapToUserEntity(validatedDTO, passwordEncoder);
-
             // Assign ROLE_USER
             UserRole userRole = userRoleRepository.findByName(RoleName.ROLE_USER)
                     .orElseThrow(() -> new RuntimeException("Default role not found"));
             user.setUserRole(userRole.getName());
 
+            // db call
             User savedUser = userRepository.save(user);
-            logger.info("User created successfully with ID: {}", savedUser.getId());
-
+            // handle invited flow update status
             handleInvitedFlow(savedUser);
 
-            return Mapper.mapToUserDTO(savedUser);
-        } catch (Exception ex) {
-            logger.error("Unexpected error while creating user", ex);
-            throw new ServiceException(ex.getMessage());
-        }
-    }
+            // convert result to dto back
+            UserDTO userdto = Mapper.mapToUserDTO(savedUser);
+            userdto.setPassword("********"); // Mask password in response
 
-    @Override
-    public UserDTO registerUser(UserDTO userDTO) {
-        if (logger.isDebugEnabled()) {
-            logger.debug("Registering new user with identifier: {}", maskIdentifier(userDTO.getPhoneNumber()));
-        }
-
-        try {
-            UserDTO savedUser = createUser(userDTO);
-            savedUser.setPassword("********"); // Mask password in response
-            logger.info("User registration successful. User ID: {}", savedUser.getId());
-            return savedUser;
+            logger.info("User registration/creation successful. User ID: {}", savedUser.getId());
+            return userdto;
         } catch (ServiceException ex) {
             throw ex;
         } catch (Exception ex) {
+            // @transactional rollback happens on runtime exception our ServiceException is
+            // runtimeexception so it will work
             logger.error("Unexpected error during user creation", ex);
             throw new ServiceException("User creation failed", HttpStatus.INTERNAL_SERVER_ERROR);
         }
@@ -172,8 +166,7 @@ public class UserServiceImpl implements UserService {
             int updatedCount = contactRepository.updateContactUserIdByEmail(
                     savedUser.getId(),
                     ContactStatus.ADDED,
-                    savedUser.getEmail()
-            );
+                    savedUser.getEmail());
             logger.info("Updated contactUserId for {} contacts matching email {}", updatedCount, savedUser.getEmail());
         }
     }
@@ -204,13 +197,14 @@ public class UserServiceImpl implements UserService {
                 user.setName(InputSecurityUtils.secureName(userDTO.getName()));
             }
             if (userDTO.getProfilePictureUrl() != null) {
-                user.setProfilePictureUrl(userDTO.getProfilePictureUrl());//for now no check
+                user.setProfilePictureUrl(userDTO.getProfilePictureUrl());// for now no check
             }
             if (userDTO.getAbout() != null) {
                 user.setAbout(InputSecurityUtils.secureAbout(userDTO.getAbout()));
             }
+            // update password flow
             updatePasswordIfRequested(user, userDTO);
-
+            // save to db
             User updatedUser = userRepository.save(user);
             logger.info("User updated successfully. ID: {}", updatedUser.getId());
             UserDTO updatedUserDTO = Mapper.mapToUserDTO(updatedUser);
@@ -224,6 +218,43 @@ public class UserServiceImpl implements UserService {
         }
     }
 
+    private void updatePasswordIfRequested(User user, UserDTO userDTO) {
+        boolean passwordUpdateRequested = !StringUtil.isBlank(userDTO.getOldPassword())
+                || !StringUtil.isBlank(userDTO.getNewPassword())
+                || !StringUtil.isBlank(userDTO.getConfirmPassword());
+
+        if (!passwordUpdateRequested) {
+            return;
+        }
+
+        String oldPassword = InputSecurityUtils.securePassword(userDTO.getOldPassword());
+        String newPassword = InputSecurityUtils.securePassword(userDTO.getNewPassword());
+        String confirmPassword = InputSecurityUtils.securePassword(userDTO.getConfirmPassword());
+
+        if (StringUtil.isBlank(oldPassword) || StringUtil.isBlank(newPassword) || StringUtil.isBlank(confirmPassword)) {
+            throw new ServiceException("Old password, new password, and confirm password are required",
+                    HttpStatus.BAD_REQUEST);
+        }
+        if (!passwordEncoder.matches(oldPassword, user.getPassword())) {
+            throw new ServiceException("Old password is incorrect", HttpStatus.BAD_REQUEST);
+        }
+        if (!newPassword.equals(confirmPassword)) {
+            throw new ServiceException("New password and confirm password do not match", HttpStatus.BAD_REQUEST);
+        }
+        if (!PasswordUtil.isStrongPassword(newPassword)) {
+            throw new ServiceException(
+                    "New password must be at least 8 characters and include uppercase, lowercase, and a digit",
+                    HttpStatus.BAD_REQUEST);
+        }
+        if (oldPassword.equals(newPassword)) {
+            throw new ServiceException("New password must be different from old password", HttpStatus.BAD_REQUEST);
+        }
+
+        user.setPassword(passwordEncoder.encode(newPassword));
+    }
+
+ 
+
     @Override
     @Caching(put = {
             @CachePut(value = "userCache", key = "#userId", unless = "#result == null")
@@ -233,16 +264,18 @@ public class UserServiceImpl implements UserService {
     public UserDTO updateLastSeen(String userId) {
         logger.debug("Updating last seen for user ID: {}", userId);
         String validId = InputSecurityUtils.secureId(userId);
-
+        // fetch user from db first
         User user = userRepository.findById(validId)
                 .orElseThrow(() -> new ServiceException("User not found with ID", HttpStatus.NOT_FOUND));
-        
+
+        // find lastactive time from redis
         String lastActive = redisSessionStore.getLastActiveTimeStampUser(validId);
-        if (isBlank(lastActive)) {
+        if (StringUtil.isBlank(lastActive)) {
             throw new ServiceException("Last active timestamp not found", HttpStatus.NOT_FOUND);
         }
-
+        // update field
         user.setUserlastSeen(parseLastActiveInstant(lastActive));
+        // save to db
         User updatedUser = userRepository.save(user);
         return Mapper.mapToUserDTO(updatedUser);
     }
@@ -253,211 +286,6 @@ public class UserServiceImpl implements UserService {
         } catch (NumberFormatException ex) {
             throw new ServiceException("Invalid last active timestamp", HttpStatus.BAD_REQUEST);
         }
-    }
-
-    @Override
-    @Transactional
-    public UserDTO forgotPassword(AuthDTO authDTO) {
-        if (authDTO == null) {
-            throw new ServiceException("Forgot password request data is required", HttpStatus.BAD_REQUEST);
-        }
-
-        String phoneNumberOrEmail = validateForgotPasswordIdentifier(authDTO.getPhoneNumberOrEmail());
-        String newPassword = validateForgotPasswordPassword(authDTO.getPassword());
-
-        if (!isStrongPassword(newPassword)) {
-            throw new ServiceException("Password must be at least 8 characters and include uppercase, lowercase, and a digit", HttpStatus.BAD_REQUEST);
-        }
-         // TODO: Validate OTP before allowing password reset.
-
-        // TODO: Reject password reset when OTP is missing, expired, or already used.
-
-        UserDTO existingUser = getUserForForgotPassword(phoneNumberOrEmail);
-        User user = userRepository.findById(existingUser.getId())
-                .orElseThrow(() -> new ServiceException("User not found with ID", HttpStatus.NOT_FOUND));
-
-        user.setPassword(passwordEncoder.encode(newPassword));
-        User updatedUser = userRepository.save(user);
-        logger.info("Forgot password reset completed for user ID: {}", updatedUser.getId());
-
-        UserDTO updatedUserDTO = Mapper.mapToUserDTO(updatedUser);
-        updatedUserDTO.setPassword("********");
-        return updatedUserDTO;
-    }
-
-    @Override
-    public JwtResponse authenticate(AuthDTO authDTO) {
-        if (logger.isDebugEnabled()) {
-            logger.debug("Authentication request received for identifier: {}",
-                    maskIdentifier(authDTO.getPhoneNumberOrEmail()));
-        }
-
-        AuthDTO sanitizedDTO = InputValidationAndSanitizationService.validateAndSanitize(authDTO);
-        UserDTO user = authenticate(sanitizedDTO.getPhoneNumberOrEmail(), sanitizedDTO.getPassword());
-
-        String role = user.getRoleName() != null ? user.getRoleName().name() : "";
-        Map<String, Object> claims = new HashMap<>();
-        claims.put("roles", role.isEmpty() ? List.of() : List.of(role));
-        claims.put("id", user.getId());
-        // dont store in jwt. In jwt only add important info like id, role etc.
-        // even if user updates info we dont need to refresh jwt
-        // user directly fetch latest details by id this is the main purpose to remove
-        // other details
-        // claims.put("email", user.getEmail());
-        // claims.put("name", user.getName());//dont store in jwt
-
-        String token = jwtUtil.generateAccessToken(claims, user.getPhoneNumber());
-        String refreshToken = jwtUtil.generateRefreshToken(user.getPhoneNumber());
-
-        // Save refresh token for later validation
-        // refreshTokenService.saveRefreshToken(refreshToken, user.getUsername());
-
-        if (logger.isDebugEnabled()) {
-            logger.debug("JWT token generated for user: {}", maskIdentifier(user.getPhoneNumber()));
-        }
-
-        return new JwtResponse(token, refreshToken, user.getEmail(), user.getName(),
-                role, user.getEmail(), user.getProfilePictureUrl(), user.getId());
-    }
-
-    private UserDTO authenticate(String username, String password) throws ServiceException {
-        try {
-            if (logger.isDebugEnabled()) {
-                logger.debug("Attempting authentication for user: {}", maskIdentifier(username));
-            }
-
-            UserDTO user = getUserByPhoneNumberOrEmail(username);
-            if (!passwordEncoder.matches(password, user.getPassword())) {
-                logger.warn("Authentication failed - invalid credentials for user: {}", maskIdentifier(username));
-                throw new ServiceException("INVALID_CREDENTIALS", HttpStatus.UNAUTHORIZED);
-            }
-
-            if (logger.isDebugEnabled()) {
-                logger.debug("Authentication successful for user: {}", maskIdentifier(username));
-            }
-            return user;
-        } catch (ServiceException e) {
-            logger.warn("Authentication failed - invalid credentials for user: {}", maskIdentifier(username));
-            throw new ServiceException("INVALID_CREDENTIALS", HttpStatus.UNAUTHORIZED);
-        }
-    }
-
-    @Override
-    public JwtResponse refreshToken(RefreshTokenRequest request) {
-        if (request == null || isBlank(request.getRefreshToken())) {
-            throw new ServiceException("Refresh token is required", HttpStatus.BAD_REQUEST);
-        }
-
-        String refreshToken = request.getRefreshToken();
-        String username = jwtUtil.extractUsername(refreshToken);
-        if (isBlank(username)) {
-            throw new InvalidTokenException("Refresh token validation failed - username not found");
-        }
-
-        UserDTO user = getUserForRefreshToken(username);
-        String role = user.getRoleName() != null ? user.getRoleName().name() : "";
-
-        Map<String, Object> claims = new HashMap<>();
-        claims.put("roles", role.isEmpty() ? List.of() : List.of(role));
-        claims.put("id", user.getId());
-
-        String newToken = jwtUtil.generateAccessToken(claims, user.getPhoneNumber());
-        logger.info("New JWT token generated via refresh for user ID: {}", user.getId());
-
-        return new JwtResponse(newToken, refreshToken, user.getEmail(), user.getName(),
-                role, user.getEmail(), user.getProfilePictureUrl(), user.getId());
-    }
-
-    private UserDTO getUserForRefreshToken(String username) {
-        try {
-            return getUserByPhoneNumberOrEmail(username);
-        } catch (ServiceException ex) {
-            throw new InvalidTokenException("Refresh token validation failed - user not found", ex);
-        }
-    }
-
-    private String validateForgotPasswordIdentifier(String phoneNumberOrEmail) {
-        try {
-            return InputSecurityUtils.secureLoginId(phoneNumberOrEmail);
-        } catch (SecurityException ex) {
-            throw new ServiceException("Phone number or email must be valid", HttpStatus.BAD_REQUEST);
-        }
-    }
-
-    private String validateForgotPasswordPassword(String password) {
-        try {
-            return InputSecurityUtils.securePassword(password);
-        } catch (SecurityException ex) {
-            throw new ServiceException(ex.getMessage(), HttpStatus.BAD_REQUEST);
-        }
-    }
-
-    private UserDTO getUserForForgotPassword(String phoneNumberOrEmail) {
-        try {
-            return getUserByPhoneNumberOrEmail(phoneNumberOrEmail);
-        } catch (ServiceException ex) {
-            if (HttpStatus.NOT_FOUND.equals(ex.getStatus())) {
-                throw new ServiceException("No account found for provided phone number or email", HttpStatus.NOT_FOUND);
-            }
-            throw ex;
-        }
-    }
-
-    private void updatePasswordIfRequested(User user, UserDTO userDTO) {
-        boolean passwordUpdateRequested = !isBlank(userDTO.getOldPassword())
-                || !isBlank(userDTO.getNewPassword())
-                || !isBlank(userDTO.getConfirmPassword());
-
-        if (!passwordUpdateRequested) {
-            return;
-        }
-
-        String oldPassword = InputSecurityUtils.securePassword(userDTO.getOldPassword());
-        String newPassword = InputSecurityUtils.securePassword(userDTO.getNewPassword());
-        String confirmPassword = InputSecurityUtils.securePassword(userDTO.getConfirmPassword());
-
-        if (isBlank(oldPassword) || isBlank(newPassword) || isBlank(confirmPassword)) {
-            throw new ServiceException("Old password, new password, and confirm password are required", HttpStatus.BAD_REQUEST);
-        }
-        if (!passwordEncoder.matches(oldPassword, user.getPassword())) {
-            throw new ServiceException("Old password is incorrect", HttpStatus.BAD_REQUEST);
-        }
-        if (!newPassword.equals(confirmPassword)) {
-            throw new ServiceException("New password and confirm password do not match", HttpStatus.BAD_REQUEST);
-        }
-        if (!isStrongPassword(newPassword)) {
-            throw new ServiceException("New password must be at least 8 characters and include uppercase, lowercase, and a digit", HttpStatus.BAD_REQUEST);
-        }
-        if (oldPassword.equals(newPassword)) {
-            throw new ServiceException("New password must be different from old password", HttpStatus.BAD_REQUEST);
-        }
-
-        user.setPassword(passwordEncoder.encode(newPassword));
-    }
-
-    private boolean isBlank(String value) {
-        return value == null || value.trim().isEmpty();
-    }
-
-    private boolean isStrongPassword(String password) {
-        return password != null
-                && password.length() >= 8
-                && password.chars().anyMatch(Character::isUpperCase)
-                && password.chars().anyMatch(Character::isLowerCase)
-                && password.chars().anyMatch(Character::isDigit);
-    }
-
-    private String maskIdentifier(String identifier) {
-        if (identifier == null)
-            return "null";
-        // mask email/phone for logs: e.g., 98****1234 or j***@domain.com
-        if (identifier.contains("@")) {
-            int idx = identifier.indexOf("@");
-            return identifier.charAt(0) + "***" + identifier.substring(idx);
-        } else if (identifier.length() > 4) {
-            return identifier.substring(0, 2) + "****" + identifier.substring(identifier.length() - 2);
-        }
-        return "****";
     }
 
     @Override
@@ -472,7 +300,9 @@ public class UserServiceImpl implements UserService {
         logger.info("User deleted successfully. ID: {}", userId);
     }
 
-    // This method returns lastactive timestamp for multiple users, as user can be active in multiple devices, so we will return the list of status of all devices
+    // This method returns lastactive timestamp for multiple users, as user can be
+    // active in multiple devices, so we will return the list of status of all
+    // devices
     @Override
     public List<UserStatusDTO> getLastActiveUserStatus(String userId) {
         logger.debug("Fetching last active timestamp for user(s): {}", userId);
@@ -494,4 +324,3 @@ public class UserServiceImpl implements UserService {
         return result;
     }
 }
-

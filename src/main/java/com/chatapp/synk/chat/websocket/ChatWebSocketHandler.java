@@ -171,6 +171,7 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
 
         if (userId != null) {
             try {
+                //internally takes out data from redis
                 userService.updateLastSeen(userId);
             } catch (Exception ex) {
                 logger.error("[WS_LAST_SEEN_UPDATE_FAILED] | userId={} sessionId={}", userId, sessionId, ex);
