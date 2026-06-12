@@ -5,6 +5,8 @@ import com.chatapp.synk.enums.RoleName;
 import com.chatapp.synk.enums.UserStatus;
 import jakarta.validation.constraints.NotBlank;
 
+import java.time.Instant;
+
 public class UserDTO {
 
     private String id;//userid
@@ -23,6 +25,7 @@ public class UserDTO {
     private String about;
     private UserStatus status;
     private RoleName roleName;
+    private String userlastSeen;
 
     public UserDTO() {
     }
@@ -133,5 +136,13 @@ public class UserDTO {
 
     public void setRoleName(RoleName roleName) {
         this.roleName = roleName;
+    }
+
+    public String getUserlastSeen() {
+        return userlastSeen;
+    }
+
+    public void setUserlastSeen(String userlastSeen) {
+        this.userlastSeen = userlastSeen;
     }
 }

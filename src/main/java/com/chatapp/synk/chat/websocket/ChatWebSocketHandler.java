@@ -5,6 +5,7 @@ import com.chatapp.synk.chat.common.Json;
 import com.chatapp.synk.chat.rabbitmq.ChatMessagePublisher;
 import com.chatapp.synk.chat.redis.RedisSessionStore;
 import com.chatapp.synk.enums.ChatWebSocketStatus;
+import com.chatapp.synk.service.UserService;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -30,6 +31,7 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
     private final RedisSessionStore redisSessionStore;
     private final ChatMessagePublisher chatMessagePublisher;
     private final ExecutorService taskExecutor;
+    private final UserService userService;
 
     // Metrics
     private final AtomicInteger activeConnections = new AtomicInteger(0);
@@ -40,11 +42,13 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
                                 RedisSessionStore redisSessionStore,
                                 ChatMessagePublisher chatMessagePublisher,
                                 ExecutorService taskExecutor,
+                                UserService userService,
                                 MeterRegistry meterRegistry) {
         this.localWsSessionRegistry = localWsSessionRegistry;
         this.redisSessionStore = redisSessionStore;
         this.chatMessagePublisher = chatMessagePublisher;
         this.taskExecutor = taskExecutor;
+        this.userService = userService;
 
         // Register WebSocket metrics
         // Gauge for active connections
@@ -166,6 +170,11 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         String sessionId = wsSession.getId();
 
         if (userId != null) {
+            try {
+                userService.updateLastSeen(userId);
+            } catch (Exception ex) {
+                logger.error("[WS_LAST_SEEN_UPDATE_FAILED] | userId={} sessionId={}", userId, sessionId, ex);
+            }
             localWsSessionRegistry.remove(userId);
             redisSessionStore.deleteUserSession(userId);
             logger.info("[WS_DISCONNECTED] | userId={} sessionId={} status={}", userId, sessionId, status);

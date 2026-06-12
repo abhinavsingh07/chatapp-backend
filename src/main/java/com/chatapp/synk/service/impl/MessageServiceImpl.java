@@ -34,14 +34,20 @@ public class MessageServiceImpl implements MessageService {
     @Override
     public List<MessageDTO> getMessagesByConversationId(String conversationId) {
         String validId = InputSecurityUtils.secureId(conversationId);
-        return messageRepository.findByConversationIdOrderBySentAtAsc(validId).stream().map(Mapper::mapToMessageDTO).collect(Collectors.toList());
+        return messageRepository.findByConversationIdOrderBySentAtAsc(validId)
+        .stream()
+        .map(Mapper::mapToMessageDTO)
+        .collect(Collectors.toList());
     }
 
     @Override
     public List<MessageDTO> getUnreadMessagesForReceiver(String conversationId, String receiverId) {
         String receiverValidId = InputSecurityUtils.secureId(receiverId);
         String conversationValidId = InputSecurityUtils.secureId(conversationId);
-        return messageRepository.findByConversationIdAndReceiverId(conversationValidId, receiverValidId).stream().map(Mapper::mapToMessageDTO).collect(Collectors.toList());
+        return messageRepository.findByConversationIdAndReceiverId(conversationValidId, receiverValidId)
+        .stream()
+        .map(Mapper::mapToMessageDTO)
+        .collect(Collectors.toList());
     }
 
     @Override

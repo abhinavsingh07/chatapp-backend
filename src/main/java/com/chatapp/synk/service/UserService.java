@@ -22,6 +22,8 @@ public interface UserService {
 
     UserDTO updateUser(String userId, UserDTO userDTO);
 
+    UserDTO updateLastSeen(String userId);
+
     UserDTO forgotPassword(AuthDTO authDTO);
 
     JwtResponse authenticate(AuthDTO authDTO);

@@ -225,6 +225,37 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    @Caching(put = {
+            @CachePut(value = "userCache", key = "#userId", unless = "#result == null")
+    }, evict = {
+            @CacheEvict(value = "userListCache", key = "'allUsers'", beforeInvocation = true)
+    })
+    public UserDTO updateLastSeen(String userId) {
+        logger.debug("Updating last seen for user ID: {}", userId);
+        String validId = InputSecurityUtils.secureId(userId);
+
+        User user = userRepository.findById(validId)
+                .orElseThrow(() -> new ServiceException("User not found with ID", HttpStatus.NOT_FOUND));
+        
+        String lastActive = redisSessionStore.getLastActiveTimeStampUser(validId);
+        if (isBlank(lastActive)) {
+            throw new ServiceException("Last active timestamp not found", HttpStatus.NOT_FOUND);
+        }
+
+        user.setUserlastSeen(parseLastActiveInstant(lastActive));
+        User updatedUser = userRepository.save(user);
+        return Mapper.mapToUserDTO(updatedUser);
+    }
+
+    private Instant parseLastActiveInstant(String lastActive) {
+        try {
+            return Instant.ofEpochMilli(Long.parseLong(lastActive));
+        } catch (NumberFormatException ex) {
+            throw new ServiceException("Invalid last active timestamp", HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    @Override
     @Transactional
     public UserDTO forgotPassword(AuthDTO authDTO) {
         if (authDTO == null) {

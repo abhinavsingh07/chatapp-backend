@@ -16,6 +16,7 @@ public class Mapper {
         dto.setEmail(user.getEmail());
         dto.setStatus(user.getStatus());
         dto.setRoleName(user.getUserRole());
+        dto.setUserlastSeen(user.getUserlastSeen() != null ? user.getUserlastSeen().toString() : "");
         return dto;
     }
 
@@ -29,8 +30,8 @@ public class Mapper {
         user.setProfilePictureUrl(dto.getProfilePictureUrl());
         user.setAbout(dto.getAbout());
         user.setEmail(dto.getEmail());
-        //user.setStatus(UserStatus.ACTIVE); Inserting from entity lifecycle hook
-        //user.setUserRole(RoleName.ROLE_USER);//inserting in servicelayer
+        // user.setStatus(UserStatus.ACTIVE); Inserting from entity lifecycle hook
+        // user.setUserRole(RoleName.ROLE_USER);//inserting in servicelayer
         return user;
     }
 
@@ -56,7 +57,6 @@ public class Mapper {
         dto.setEmail(contact.getEmail());
         return dto;
     }
-
 
     public static Conversation mapToConversationEntity(ConversationDTO dto) {
         Conversation conversation = new Conversation();
